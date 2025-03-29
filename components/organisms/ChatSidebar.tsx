@@ -1,7 +1,8 @@
 import { ScrollArea } from '@/components/atoms/scroll-area';
 import { ChatList } from '@/components/molecules/ChatList';
 import SearchInput from '@/components/molecules/SearchInput';
-import { ModeToggle } from '../atoms/mode-toggle';
+// import { ModeToggle } from '../atoms/mode-toggle';
+import AppOptions from '../molecules/AppOptions';
 
 const ChatSidebar = () => {
   return (
@@ -12,7 +13,11 @@ const ChatSidebar = () => {
           {/* <Button variant="ghost" size="icon" className="rounded-full">
             <Edit className="h-5 w-5 text-muted-foreground" />
           </Button> */}
-          <ModeToggle />
+          {/* <ModeToggle /> */}
+          {/* <Button variant="ghost" size="icon" className="rounded-full">
+            <EllipsisVertical className="h-5 w-5 text-muted-foreground" />
+          </Button> */}
+          <AppOptions />
         </div>
         <div className="mt-4">
           <SearchInput placeholder="Search messages..." />
