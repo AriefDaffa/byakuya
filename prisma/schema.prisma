@@ -1,0 +1,66 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    id             String   @id @default(uuid())
+    username       String   @unique
+    email          String   @unique
+    password       String
+    profilePicture String?
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+
+    privateChatsAsUser1 PrivateChat[] @relation("user1")
+    privateChatsAsUser2 PrivateChat[] @relation("user2")
+    groupMemberships    GroupMember[]
+    messages            Message[]
+}
+
+model PrivateChat {
+    id        String   @id @default(uuid())
+    user1Id   String
+    user2Id   String
+    createdAt DateTime @default(now())
+
+    user1    User      @relation("user1", fields: [user1Id], references: [id])
+    user2    User      @relation("user2", fields: [user2Id], references: [id])
+    messages Message[]
+}
+
+model GroupChat {
+    id        String   @id @default(uuid())
+    name      String
+    createdAt DateTime @default(now())
+
+    members  GroupMember[]
+    messages Message[]
+}
+
+model GroupMember {
+    id       String   @id @default(uuid())
+    userId   String
+    groupId  String
+    joinedAt DateTime @default(now())
+
+    user  User      @relation(fields: [userId], references: [id])
+    group GroupChat @relation(fields: [groupId], references: [id])
+}
+
+model Message {
+    id            String   @id @default(uuid())
+    senderId      String
+    content       String
+    createdAt     DateTime @default(now())
+    privateChatId String?
+    groupChatId   String?
+
+    sender      User         @relation(fields: [senderId], references: [id])
+    privateChat PrivateChat? @relation(fields: [privateChatId], references: [id])
+    groupChat   GroupChat?   @relation(fields: [groupChatId], references: [id])
+}
