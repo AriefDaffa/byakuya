@@ -18,11 +18,28 @@ import {
 } from '@/components/atoms/dropdown-menu';
 import { EllipsisVertical } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { authClient } from '@/lib/auth-client';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 // interface AppOptionsProps {}
 
 const AppOptions: FC = () => {
   const { setTheme, theme } = useTheme();
+
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await authClient.signOut(
+      {},
+      {
+        onSuccess: () => {
+          toast.success('Successfully logged out');
+          router.push('/login');
+        },
+      }
+    );
+  };
 
   return (
     <DropdownMenu>
@@ -33,7 +50,7 @@ const AppOptions: FC = () => {
         <DropdownMenuLabel>Settings</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem>Profile</DropdownMenuItem>
-        <DropdownMenuSeparator />
+
         <DropdownMenuGroup>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
@@ -54,6 +71,9 @@ const AppOptions: FC = () => {
             </DropdownMenuPortal>
           </DropdownMenuSub>
         </DropdownMenuGroup>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

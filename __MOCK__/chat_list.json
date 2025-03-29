@@ -1,0 +1,94 @@
+{
+  "chats": [
+    {
+      "avatar": "/placeholder.svg?height=40&width=40",
+      "name": "Hatypo Studio",
+      "message": "Mas Aditt Typing.....",
+      "time": "09:26 PM",
+      "unread": 2,
+      "active": true,
+      "fallback": "A"
+    },
+    {
+      "avatar": "/placeholder.svg?height=40&width=40",
+      "name": "John Doe",
+      "message": "See you tomorrow!",
+      "time": "08:15 PM",
+      "unread": 0,
+      "active": false,
+      "fallback": "J"
+    },
+    {
+      "avatar": "/placeholder.svg?height=40&width=40",
+      "name": "Jane Smith",
+      "message": "Can you send me the file?",
+      "time": "07:45 PM",
+      "unread": 3,
+      "active": true,
+      "fallback": "J"
+    },
+    {
+      "avatar": "/placeholder.svg?height=40&width=40",
+      "name": "Michael Lee",
+      "message": "I'll call you later.",
+      "time": "06:30 PM",
+      "unread": 1,
+      "active": false,
+      "fallback": "M"
+    },
+    {
+      "avatar": "/placeholder.svg?height=40&width=40",
+      "name": "Sarah Connor",
+      "message": "Let's meet at 5 PM.",
+      "time": "05:10 PM",
+      "unread": 4,
+      "active": true,
+      "fallback": "S"
+    },
+    {
+      "avatar": "/placeholder.svg?height=40&width=40",
+      "name": "David Warner",
+      "message": "Check your email.",
+      "time": "04:55 PM",
+      "unread": 0,
+      "active": false,
+      "fallback": "D"
+    },
+    {
+      "avatar": "/placeholder.svg?height=40&width=40",
+      "name": "Olivia Brown",
+      "message": "Are you free this weekend?",
+      "time": "03:20 PM",
+      "unread": 2,
+      "active": true,
+      "fallback": "O"
+    },
+    {
+      "avatar": "/placeholder.svg?height=40&width=40",
+      "name": "Robert King",
+      "message": "Let's finalize the project.",
+      "time": "02:45 PM",
+      "unread": 5,
+      "active": false,
+      "fallback": "R"
+    },
+    {
+      "avatar": "/placeholder.svg?height=40&width=40",
+      "name": "Emma Watson",
+      "message": "I'm on my way!",
+      "time": "01:30 PM",
+      "unread": 1,
+      "active": true,
+      "fallback": "E"
+    },
+    {
+      "avatar": "/placeholder.svg?height=40&width=40",
+      "name": "Chris Evans",
+      "message": "Good morning!",
+      "time": "10:00 AM",
+      "unread": 0,
+      "active": false,
+      "fallback": "C"
+    }
+  ]
+}

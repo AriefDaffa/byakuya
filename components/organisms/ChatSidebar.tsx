@@ -3,20 +3,20 @@ import { ChatList } from '@/components/molecules/ChatList';
 import SearchInput from '@/components/molecules/SearchInput';
 // import { ModeToggle } from '../atoms/mode-toggle';
 import AppOptions from '../molecules/AppOptions';
+import { CircleSlash2 } from 'lucide-react';
+import { FC } from 'react';
+import { IChatListTypes } from '@/types/ChatListTypes';
 
-const ChatSidebar = () => {
+interface ChatSidebarProps extends IChatListTypes {
+  isLoading: boolean;
+}
+
+const ChatSidebar: FC<ChatSidebarProps> = ({ chats = [], isLoading }) => {
   return (
     <div className="w-80 border-r flex flex-col">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-blue-600">Messages</h1>
-          {/* <Button variant="ghost" size="icon" className="rounded-full">
-            <Edit className="h-5 w-5 text-muted-foreground" />
-          </Button> */}
-          {/* <ModeToggle /> */}
-          {/* <Button variant="ghost" size="icon" className="rounded-full">
-            <EllipsisVertical className="h-5 w-5 text-muted-foreground" />
-          </Button> */}
           <AppOptions />
         </div>
         <div className="mt-4">
@@ -24,100 +24,42 @@ const ChatSidebar = () => {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 h-1">
-        <div className="p-2">
-          <div className="text-xs text-muted-foreground px-2 py-1">
-            <span>Pinned Message</span>
+      {isLoading ? (
+        <></>
+      ) : chats.length < 1 ? (
+        <div className="size-full flex items-center justify-center">
+          <div className="space-y-2 text-center px-4">
+            <div className="flex justify-center mb-4">
+              <CircleSlash2 className="w-20 h-20 text-muted-foreground" />
+            </div>
+            <div className="text-xl font-semibold">Your inbox is empty</div>
+            <div className="text-sm text-muted-foreground">
+              Once you start a conversation, you&apos;ll see it listed here
+            </div>
           </div>
-
-          <ChatList
-            avatar="/placeholder.svg?height=40&width=40"
-            name="Hatypo Studio"
-            message="Mas Aditt Typing....."
-            time="09:26 PM"
-            unread={2}
-            active
-            fallback="A"
-          />
-
-          <ChatList
-            avatar="/placeholder.svg?height=40&width=40"
-            name="Hatypo Studio"
-            message="Mas Happy Typing....."
-            time="09:11 PM"
-            unread={1}
-            color="bg-orange-500"
-            fallback="A"
-          />
-
-          <ChatList
-            avatar="/placeholder.svg?height=40&width=40"
-            name="Nolaaa"
-            message="PPPPPPPPPPPPPPPPPPPP"
-            time="09:12 PM"
-            unread={11}
-            fallback="A"
-          />
-
-          <ChatList
-            avatar="/placeholder.svg?height=40&width=40"
-            name="OMOC Project"
-            message="Aldit Typing....."
-            time="09:11 PM"
-            unread={2}
-            fallback="A"
-          />
-
-          <div className="text-xs text-muted-foreground px-2 py-1 mt-4">
-            <span>All Message</span>
-          </div>
-
-          <ChatList
-            avatar="/placeholder.svg?height=40&width=40"
-            name="Momon"
-            message="Typing..."
-            time="09:26 PM"
-            online
-            fallback="A"
-          />
-
-          <ChatList
-            avatar="/placeholder.svg?height=40&width=40"
-            name="Farhan"
-            message="Cek Figma coba han"
-            time="09:25 PM"
-            online
-            fallback="A"
-          />
-
-          <ChatList
-            avatar="/placeholder.svg?height=40&width=40"
-            name="Mas Aditt"
-            message="Typing..."
-            time="09:21 AM"
-            online
-            fallback="A"
-          />
-
-          <ChatList
-            avatar="/placeholder.svg?height=40&width=40"
-            name="Zhofran"
-            message="Yaudah jop"
-            time="Yesterday"
-            online
-            fallback="A"
-          />
-
-          <ChatList
-            avatar="/placeholder.svg?height=40&width=40"
-            name="Vitoo"
-            message="Pie to jaremu?"
-            time="Yesterday"
-            online
-            fallback="A"
-          />
         </div>
-      </ScrollArea>
+      ) : (
+        <ScrollArea className="flex-1 h-1">
+          <div className="p-2">
+            <div className="text-xs text-muted-foreground px-2 py-1 mt-4">
+              <span>All Message</span>
+            </div>
+            {chats.map((item, idx) => (
+              <ChatList
+                key={idx}
+                avatar={item.avatar}
+                name={item.name}
+                message={item.message}
+                time={item.time}
+                online
+                fallback={item.fallback}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+      )}
+
+      {/*  */}
     </div>
   );
 };

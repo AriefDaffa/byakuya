@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,7 +8,7 @@ datasource db {
 }
 
 model User {
-  id            String    @id
+  id            String            @id
   name          String
   email         String
   emailVerified Boolean
@@ -18,9 +17,62 @@ model User {
   updatedAt     DateTime
   sessions      Session[]
   accounts      Account[]
+  privateChats  PrivateChatUser[]
+  groupChats    GroupChatUser[]
+  messages      Message[]
 
   @@unique([email])
   @@map("user")
+}
+
+model PrivateChat {
+  id        String            @id
+  createdAt DateTime          @default(now())
+  users     PrivateChatUser[]
+  messages  Message[]
+}
+
+model PrivateChatUser {
+  id            String @id
+  userId        String
+  privateChatId String
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  privateChat PrivateChat @relation(fields: [privateChatId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, privateChatId])
+}
+
+model GroupChat {
+  id        String          @id
+  name      String
+  createdAt DateTime        @default(now())
+  users     GroupChatUser[]
+  messages  Message[]
+}
+
+model GroupChatUser {
+  id          String @id
+  userId      String
+  groupChatId String
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupChat GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupChatId])
+}
+
+model Message {
+  id            String   @id
+  senderId      String
+  privateChatId String?
+  groupChatId   String?
+  content       String
+  createdAt     DateTime @default(now())
+
+  sender      User         @relation(fields: [senderId], references: [id])
+  privateChat PrivateChat? @relation(fields: [privateChatId], references: [id])
+  groupChat   GroupChat?   @relation(fields: [groupChatId], references: [id])
 }
 
 model Session {

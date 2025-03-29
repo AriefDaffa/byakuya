@@ -6,10 +6,12 @@ import ChatSidebar from '@/components/organisms/ChatSidebar';
 import MessageThread from '@/components/organisms/MessageThread';
 import ChatTemplates from '@/components/templates/ChatTemplates';
 
+import dummyChat from '@/__MOCK__/chat_list.json';
+
 export default function Home() {
   return (
     <ChatTemplates
-      sidebar={<ChatSidebar />}
+      sidebar={<ChatSidebar chats={dummyChat.chats} isLoading={false} />}
       header={
         <ChatHeader
           name="Hatypo Studio"
