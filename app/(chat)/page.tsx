@@ -6,18 +6,19 @@ import ChatSidebar from '@/components/organisms/ChatSidebar';
 import MessageThread from '@/components/organisms/MessageThread';
 import ChatTemplates from '@/components/templates/ChatTemplates';
 
-import dummyChat from '@/__MOCK__/chat_list.json';
 import { authClient } from '@/lib/auth-client';
+import { useChatList } from '@/hooks/useChatList';
 
 export default function Home() {
   const { useSession } = authClient;
 
   const { data } = useSession();
-  console.log(data?.user);
+
+  const { chats, loading } = useChatList(data?.user.id || '');
 
   return (
     <ChatTemplates
-      sidebar={<ChatSidebar chats={dummyChat.chats} isLoading={false} />}
+      sidebar={<ChatSidebar chats={chats} isLoading={loading} />}
       header={
         <ChatHeader
           name="Hatypo Studio"

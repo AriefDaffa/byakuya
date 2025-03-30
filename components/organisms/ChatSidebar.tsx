@@ -1,17 +1,18 @@
 import { ScrollArea } from '@/components/atoms/scroll-area';
 import { ChatList } from '@/components/molecules/ChatList';
 import SearchInput from '@/components/molecules/SearchInput';
-// import { ModeToggle } from '../atoms/mode-toggle';
-import AppOptions from '../molecules/AppOptions';
+import { ChatListType } from '@/types/ChatListTypes';
+import { formatTime } from '@/utils/formatTime';
 import { CircleSlash2 } from 'lucide-react';
 import { FC } from 'react';
-import { IChatListTypes } from '@/types/ChatListTypes';
+import AppOptions from '../molecules/AppOptions';
 
-interface ChatSidebarProps extends IChatListTypes {
+interface ChatSidebarProps {
+  chats: ChatListType[];
   isLoading: boolean;
 }
 
-const ChatSidebar: FC<ChatSidebarProps> = ({ chats = [], isLoading }) => {
+const ChatSidebar: FC<ChatSidebarProps> = ({ chats, isLoading }) => {
   return (
     <div className="w-80 border-r flex flex-col">
       <div className="p-4 border-b">
@@ -47,12 +48,12 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ chats = [], isLoading }) => {
             {chats.map((item, idx) => (
               <ChatList
                 key={idx}
-                avatar={item.avatar}
-                name={item.name}
-                message={item.message}
-                time={item.time}
+                avatar={item.users[0].image || ''}
+                name={item.type === 'group' ? '' : item.users[0].name}
+                message={item.latestMessage.content}
+                time={formatTime(item.latestMessage.createdAt)}
                 online
-                fallback={item.fallback}
+                fallback={item.users[0].name.charAt(0)}
               />
             ))}
           </div>
