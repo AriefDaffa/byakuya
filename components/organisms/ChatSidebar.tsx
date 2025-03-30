@@ -8,11 +8,11 @@ import { FC } from 'react';
 import AppOptions from '../molecules/AppOptions';
 
 interface ChatSidebarProps {
-  chats: ChatListType[];
   isLoading: boolean;
+  chats: ChatListType[];
 }
 
-const ChatSidebar: FC<ChatSidebarProps> = ({ chats, isLoading }) => {
+const ChatSidebar: FC<ChatSidebarProps> = ({ chats = [], isLoading }) => {
   return (
     <div className="w-80 border-r flex flex-col">
       <div className="p-4 border-b">
@@ -52,7 +52,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ chats, isLoading }) => {
                 name={item.type === 'group' ? '' : item.users[0].name}
                 message={item.latestMessage.content}
                 time={formatTime(item.latestMessage.createdAt)}
-                online
+                unread={item.unreadCount}
                 fallback={item.users[0].name.charAt(0)}
               />
             ))}

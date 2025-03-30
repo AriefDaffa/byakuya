@@ -3,6 +3,7 @@ export interface ChatListType {
   type: string;
   users: User[];
   latestMessage: LatestMessage;
+  unreadCount: number;
 }
 
 export interface User {

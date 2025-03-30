@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/atoms/avatar';
+import { Badge } from '../atoms/badge';
 
 interface ChatListProps {
   avatar: string;
@@ -22,7 +23,7 @@ export function ChatList({
   name,
   message,
   time,
-  //   unread,
+  unread,
   fallback,
   //   online = false,
   active = false,
@@ -52,7 +53,7 @@ export function ChatList({
         </div>
         <p className="text-sm text-muted-foreground truncate">{message}</p>
       </div>
-      {/* {unread && <BadgeCount count={unread} />} */}
+      {unread ? <Badge count={unread} /> : <></>}
     </div>
   );
 }

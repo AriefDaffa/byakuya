@@ -14,11 +14,11 @@ export default function Home() {
 
   const { data } = useSession();
 
-  const { chats, loading } = useChatList(data?.user.id || '');
+  const { chatList, loading } = useChatList(data?.user.id || '');
 
   return (
     <ChatTemplates
-      sidebar={<ChatSidebar chats={chats} isLoading={loading} />}
+      sidebar={<ChatSidebar chats={chatList} isLoading={loading} />}
       header={
         <ChatHeader
           name="Hatypo Studio"
