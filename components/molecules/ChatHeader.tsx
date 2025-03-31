@@ -1,6 +1,7 @@
-import { Button } from '@/components/atoms/button';
 import { Video, Phone, MoreVertical } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '../atoms/avatar';
+
+import { Button } from '@/components/atoms/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/atoms/avatar';
 
 interface ChatHeaderProps {
   name: string;

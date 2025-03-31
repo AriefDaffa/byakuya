@@ -25,7 +25,9 @@ const Message = ({
 }: MessageProps) => {
   return (
     <div
-      className={`flex gap-3 ${isSelf ? 'flex-row-reverse' : ''} ${className}`}
+      className={`flex gap-3 my-3 ${
+        isSelf ? 'flex-row-reverse' : ''
+      } ${className}`}
     >
       <Avatar className={`h-10 w-10`}>
         <AvatarImage src={avatar} alt={''} />

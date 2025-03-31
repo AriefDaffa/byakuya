@@ -10,9 +10,14 @@ import AppOptions from '../molecules/AppOptions';
 interface ChatSidebarProps {
   isLoading: boolean;
   chats: ChatListType[];
+  onChatSelect: (data: ChatListType) => void;
 }
 
-const ChatSidebar: FC<ChatSidebarProps> = ({ chats = [], isLoading }) => {
+const ChatSidebar: FC<ChatSidebarProps> = ({
+  chats = [],
+  isLoading,
+  onChatSelect,
+}) => {
   return (
     <div className="w-80 border-r flex flex-col">
       <div className="p-4 border-b">
@@ -46,15 +51,16 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ chats = [], isLoading }) => {
               <span>All Message</span>
             </div>
             {chats.map((item, idx) => (
-              <ChatList
-                key={idx}
-                avatar={item.users[0].image || ''}
-                name={item.type === 'group' ? '' : item.users[0].name}
-                message={item.latestMessage.content}
-                time={formatTime(item.latestMessage.createdAt)}
-                unread={item.unreadCount}
-                fallback={item.users[0].name.charAt(0)}
-              />
+              <div onClick={() => onChatSelect(item)} key={idx}>
+                <ChatList
+                  avatar={item.users[0].image || ''}
+                  name={item.type === 'group' ? '' : item.users[0].name}
+                  message={item.latestMessage.content}
+                  time={formatTime(item.latestMessage.createdAt)}
+                  unread={item.unreadCount}
+                  fallback={item.users[0].name.charAt(0)}
+                />
+              </div>
             ))}
           </div>
         </ScrollArea>

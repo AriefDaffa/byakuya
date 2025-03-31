@@ -3,27 +3,14 @@ import type { FC, ReactNode } from 'react';
 
 interface ChatTemplatesProps {
   sidebar: ReactNode;
-  header: ReactNode;
-  messageThread: ReactNode;
-  messageInput: ReactNode;
+  chatSection: ReactNode;
 }
 
-const ChatTemplates: FC<ChatTemplatesProps> = ({
-  sidebar,
-  messageThread,
-  header,
-  messageInput,
-}) => {
+const ChatTemplates: FC<ChatTemplatesProps> = ({ sidebar, chatSection }) => {
   return (
     <div className={cn('flex h-screen bg-background')}>
       {sidebar}
-
-      {/* Main chat area */}
-      <div className="flex-1 flex flex-col">
-        {header}
-        {messageThread}
-        {messageInput}
-      </div>
+      <div className="flex-1 flex flex-col">{chatSection}</div>
     </div>
   );
 };

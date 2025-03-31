@@ -3,7 +3,6 @@ import { getSessionCookie } from 'better-auth/cookies';
 
 export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request, {
-    // Optionally pass config if cookie name or prefix is customized in auth config.
     cookiePrefix: 'byakuya-cookies',
   });
 
@@ -15,5 +14,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/'], // Specify the routes the middleware applies to
+  matcher: ['/'],
 };

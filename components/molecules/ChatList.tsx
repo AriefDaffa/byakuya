@@ -1,7 +1,7 @@
 'use client';
 
-import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/atoms/avatar';
+import { cn } from '@/lib/utils';
 import { Badge } from '../atoms/badge';
 
 interface ChatListProps {
@@ -14,7 +14,6 @@ interface ChatListProps {
   online?: boolean;
   active?: boolean;
   color?: string;
-  onClick?: () => void;
   className?: string;
 }
 
@@ -28,17 +27,16 @@ export function ChatList({
   //   online = false,
   active = false,
   //   color = 'bg-blue-500',
-  onClick,
+
   className,
 }: ChatListProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-3 p-2 mt-1 rounded-lg cursor-pointer hover:bg-accent',
+        'flex items-center gap-3 p-2 mt-1 rounded-lg cursor-pointer hover:bg-accent relative',
         active && 'bg-accent',
         className
       )}
-      onClick={onClick}
     >
       <Avatar className={`h-10 w-10`}>
         <AvatarImage src={avatar} alt={''} />
@@ -53,7 +51,9 @@ export function ChatList({
         </div>
         <p className="text-sm text-muted-foreground truncate">{message}</p>
       </div>
-      {unread ? <Badge count={unread} /> : <></>}
+      <div className="absolute right-2 bottom-2">
+        {unread ? <Badge count={unread} /> : <></>}
+      </div>
     </div>
   );
 }
