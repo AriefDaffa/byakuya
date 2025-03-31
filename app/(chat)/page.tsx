@@ -12,21 +12,30 @@ import { ChatListType } from '@/types/ChatListTypes';
 
 export default function Home() {
   const [selectedChat, setSelectedChat] = useState<ChatListType>();
+  const [msg, setMsg] = useState('');
+
   const { useSession } = authClient;
 
   const { data } = useSession();
 
   const { chatList, loading } = useChatList(data?.user.id || '');
-  const { messages, loading: chatLoading } = usePrivateChat(
-    selectedChat?.id || '',
-    data?.user.id || ''
-  );
+  const {
+    messages,
+    receiver,
+    loading: chatLoading,
+    sendMessage,
+  } = usePrivateChat(selectedChat?.id || '', data?.user.id || '');
 
   const onChatSelect = (data: ChatListType) => {
     setSelectedChat(data);
   };
 
-  console.log(messages);
+  const handleSendMessage = () => {
+    if (msg.trim()) {
+      sendMessage(msg.trim());
+      setMsg('');
+    }
+  };
 
   return (
     <ChatTemplates
@@ -43,6 +52,10 @@ export default function Home() {
           messages={messages}
           isLoading={chatLoading}
           userId={data?.user.id || ''}
+          handleMessageSent={handleSendMessage}
+          msg={msg}
+          setMsg={setMsg}
+          receiver={receiver}
         />
       }
     />

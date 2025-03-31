@@ -1,4 +1,4 @@
-import { MessageTypes } from '@/types/ChatMessageTypes';
+import { MessageTypes, Receiver } from '@/types/ChatMessageTypes';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const API_URL = `${process.env.NEXT_PUBLIC_BASE_API_URL}/v1/private-chat`;
@@ -12,6 +12,7 @@ interface Pagination {
 
 export function usePrivateChat(roomId: string, user_id: string) {
   const [messages, setMessages] = useState<MessageTypes[]>([]);
+  const [receiver, setReceiver] = useState<Receiver[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +29,7 @@ export function usePrivateChat(roomId: string, user_id: string) {
 
         if (pageNum === 1) {
           setMessages(data.messages);
+          setReceiver(data.receiver);
         } else {
           setMessages((prev) => [...prev, ...data.messages]);
         }
@@ -67,7 +69,30 @@ export function usePrivateChat(roomId: string, user_id: string) {
     };
   }, [roomId, fetchMessages, user_id]);
 
-  // ✅ Load More Messages
+  const sendMessage = useCallback(
+    (message: string) => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        const newMessage: MessageTypes = {
+          id: crypto.randomUUID(), // Temporary unique ID
+          senderId: user_id,
+          content: message,
+          createdAt: new Date().toISOString(),
+          seenBy: [],
+        };
+
+        // Optimistically update UI
+        setMessages((prev) => [newMessage, ...prev]);
+
+        // Send message to WebSocket
+        const payload = JSON.stringify({ message });
+        wsRef.current.send(payload);
+      } else {
+        console.log('WebSocket is not connected.');
+      }
+    },
+    [user_id]
+  );
+
   const loadMore = () => {
     if (hasMore) {
       setPage((prev) => prev + 1);
@@ -80,7 +105,8 @@ export function usePrivateChat(roomId: string, user_id: string) {
     loading,
     error,
     pagination,
+    receiver,
     loadMore,
-    sendMessage: wsRef.current?.send.bind(wsRef.current),
+    sendMessage,
   };
 }
