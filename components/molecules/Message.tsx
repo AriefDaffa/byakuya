@@ -1,13 +1,13 @@
+import { formatChatTimestamp } from '@/utils/formatChatTimestamp';
 import { useEffect, useRef } from 'react';
-import { format } from 'date-fns';
-import { MessageBubble } from '../atoms/message-bubble';
 import { Avatar, AvatarFallback, AvatarImage } from '../atoms/avatar';
+import { MessageBubble } from '../atoms/message-bubble';
 
 interface MessageItem {
   id: string;
   sender: string;
   avatar: string;
-  time: string; // ISO string
+  time: string;
   content: React.ReactNode;
   isSelf?: boolean;
 }
@@ -82,7 +82,7 @@ const Message = ({ messages, className }: MessagesProps) => {
                 {group.messages[0].isSelf ? (
                   <>
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(group.time), 'HH:mm')}
+                      {formatChatTimestamp(group.time)}
                     </span>
                     <span className="font-semibold">{group.sender}</span>
                   </>
@@ -90,12 +90,12 @@ const Message = ({ messages, className }: MessagesProps) => {
                   <>
                     <span className="font-semibold">{group.sender}</span>
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(group.time), 'HH:mm')}
+                      {formatChatTimestamp(group.time)}
                     </span>
                   </>
                 )}
               </div>
-              {group.messages.map((msg, msgIndex) => (
+              {group.messages.map((msg) => (
                 <MessageBubble
                   key={msg.id}
                   variant={msg.isSelf ? 'sent' : 'received'}
@@ -108,7 +108,6 @@ const Message = ({ messages, className }: MessagesProps) => {
         </div>
       ))}
       <div ref={messagesEndRef} />{' '}
-      {/* 🔥 This keeps the scroll at the bottom */}
     </div>
   );
 };

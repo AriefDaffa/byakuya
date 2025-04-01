@@ -6,6 +6,7 @@ import { formatTime } from '@/utils/formatTime';
 import { CircleSlash2 } from 'lucide-react';
 import { FC } from 'react';
 import AppOptions from '../molecules/AppOptions';
+import SearchUser from '../molecules/SearchUser';
 
 interface ChatSidebarProps {
   isLoading: boolean;
@@ -19,7 +20,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
   onChatSelect,
 }) => {
   return (
-    <div className="w-80 border-r flex flex-col">
+    <div className="w-80 border-r flex flex-col relative">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-blue-600">Messages</h1>
@@ -65,8 +66,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
           </div>
         </ScrollArea>
       )}
-
-      {/*  */}
+      <SearchUser />
     </div>
   );
 };

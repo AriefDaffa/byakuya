@@ -1,4 +1,4 @@
-import { ChatListType } from '@/types/ChatListTypes';
+import { ChatListType, ChatListTypeResponse } from '@/types/ChatListTypes';
 import { useEffect, useState } from 'react';
 
 export function useChatList(userId: string) {
@@ -19,8 +19,9 @@ export function useChatList(userId: string) {
           `${process.env.NEXT_PUBLIC_BASE_API_URL}/v1/chat-list?user_id=${userId}`
         );
         if (!res.ok) throw new Error('Failed to load chat list');
-        const data: ChatListType[] = await res.json();
-        setChatList(data);
+        const data: ChatListTypeResponse = await res.json();
+
+        setChatList(data.data);
       } catch (err) {
         setError((err as Error).message);
       } finally {

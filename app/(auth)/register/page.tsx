@@ -13,11 +13,23 @@ const RegisterPage: FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const onSubmit = async (values: z.infer<typeof ZRegisterTypes>) => {
+    const getRandomAnimeAvatar = async (): Promise<string> => {
+      try {
+        const response = await fetch('https://api.waifu.pics/sfw/waifu');
+        const data = await response.json();
+        return data.url;
+      } catch (error) {
+        console.error('Failed to fetch anime avatar:', error);
+        return 'https://via.placeholder.com/150';
+      }
+    };
+
     const { data } = await authClient.signUp.email(
       {
         email: values.email,
         password: values.password,
         name: values.name,
+        image: await getRandomAnimeAvatar(),
       },
       {
         onRequest: () => {

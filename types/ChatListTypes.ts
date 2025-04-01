@@ -1,3 +1,9 @@
+export interface ChatListTypeResponse {
+  success: boolean;
+  message: string;
+  data: ChatListType[];
+}
+
 export interface ChatListType {
   id: string;
   type: string;
@@ -14,6 +20,10 @@ export interface User {
 
 export interface LatestMessage {
   id: string;
+  senderId: string;
   content: string;
   createdAt: string;
+  privateChatId: string;
+  groupChatId: string | null;
+  userId: string | null;
 }

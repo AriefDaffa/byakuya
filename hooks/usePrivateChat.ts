@@ -28,10 +28,10 @@ export function usePrivateChat(roomId: string, user_id: string) {
         const data = await res.json();
 
         if (pageNum === 1) {
-          setMessages(data.messages);
-          setReceiver(data.receiver);
+          setMessages(data.data.messages);
+          setReceiver(data.data.receiver);
         } else {
-          setMessages((prev) => [...prev, ...data.messages]);
+          setMessages((prev) => [...prev, ...data.data.messages]);
         }
 
         setPagination(data.pagination);
@@ -78,6 +78,9 @@ export function usePrivateChat(roomId: string, user_id: string) {
           content: message,
           createdAt: new Date().toISOString(),
           seenBy: [],
+          groupChatId: '',
+          privateChatId: '',
+          userId: '',
         };
 
         // Optimistically update UI
