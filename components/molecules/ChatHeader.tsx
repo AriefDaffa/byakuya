@@ -10,7 +10,7 @@ interface ChatHeaderProps {
   className?: string;
 }
 
-const ChatHeader = ({ name, status, avatar, className }: ChatHeaderProps) => {
+const ChatHeader = ({ name, avatar, className }: ChatHeaderProps) => {
   return (
     <div
       className={`border-b p-4 flex items-center justify-between ${className}`}
@@ -22,7 +22,7 @@ const ChatHeader = ({ name, status, avatar, className }: ChatHeaderProps) => {
         </Avatar>
         <div>
           <h2 className="font-semibold text-lg">{name}</h2>
-          <p className="text-sm text-green-500">{status}</p>
+          <p className="text-sm text-muted-foreground">Available</p>
         </div>
       </div>
       <div className="flex items-center gap-2">

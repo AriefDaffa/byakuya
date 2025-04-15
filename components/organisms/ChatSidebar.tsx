@@ -6,10 +6,9 @@ import { ScrollArea } from '@/components/atoms/scroll-area';
 import { Skeleton } from '@/components/atoms/skeleton';
 import { ChatList } from '@/components/molecules/ChatList';
 import { ChatListType } from '@/types/ChatListTypes';
-import { formatTime } from '@/utils/formatTime';
+import { formatChatTimestamp } from '@/utils/formatChatTimestamp';
 import { CircleSlash2, MessageSquarePlus } from 'lucide-react';
 import { Dispatch, FC, SetStateAction } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '../atoms/avatar';
 
 interface ChatSidebarProps {
   isLoading: boolean;
@@ -27,17 +26,13 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
   onChatSelect,
   userName,
   selectedChatId,
-  avatar,
+  // avatar,
   setOpenDialog,
 }) => {
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
       <div className="border-b px-3 py-4 space-y-3">
         <div className="flex gap-2 items-center">
-          <Avatar className={`h-12 w-12`}>
-            <AvatarImage src={avatar} alt={''} />
-            <AvatarFallback>{userName?.charAt(0)}</AvatarFallback>
-          </Avatar>
           <div className="">
             <div className="text-xs text-muted-foreground">Welcome,</div>
             <div className="text-xl font-semibold">{userName}</div>
@@ -90,7 +85,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
                   message={item.latestMessage?.content}
                   time={
                     item.latestMessage
-                      ? formatTime(item.latestMessage?.createdAt)
+                      ? formatChatTimestamp(item.latestMessage?.createdAt)
                       : ''
                   }
                   unread={item.unreadCount}

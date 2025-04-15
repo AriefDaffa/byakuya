@@ -18,6 +18,7 @@ import {
 } from '@/hooks/fetch/useCreatePrivateChat';
 import { useSearchUsers } from '@/hooks/useSearchUser';
 import { useCallback, useMemo, useState } from 'react';
+import Navbar from '@/components/organisms/Navbar';
 
 export default function ChatPage() {
   const { useSession } = authClient;
@@ -137,6 +138,12 @@ export default function ChatPage() {
   return (
     <>
       <ChatTemplates
+        navbarSection={
+          <Navbar
+            userName={session?.user.name}
+            avatar={session?.user.image || ''}
+          />
+        }
         sidebar={
           <ChatSidebar
             isLoading={isChatListLoading}

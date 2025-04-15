@@ -1,8 +1,8 @@
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/atoms/avatar';
+import { BadgeNotif } from '@/components/atoms/badge-notif';
 import { cn } from '@/lib/utils';
-import { Badge } from '../atoms/badge';
 
 interface ChatListProps {
   avatar: string;
@@ -47,8 +47,8 @@ export function ChatList({
         </div>
         <p className="text-sm text-muted-foreground truncate">{message}</p>
       </div>
-      <div className="absolute right-2 bottom-2">
-        {unread ? <Badge count={unread} /> : <></>}
+      <div className="absolute right-2 bottom-4">
+        {unread ? <BadgeNotif count={unread} /> : <></>}
       </div>
     </div>
   );
