@@ -31,7 +31,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
 }) => {
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
-      <div className="border-b px-3 py-4 space-y-3">
+      <div className="border-b px-3 pt-6 pb-4 space-y-4">
         <div className="flex gap-2 items-center">
           <div className="">
             <div className="text-xs text-muted-foreground">Welcome,</div>

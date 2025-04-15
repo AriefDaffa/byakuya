@@ -4,20 +4,23 @@ import type { FC, ReactNode } from 'react';
 interface ChatTemplatesProps {
   sidebar: ReactNode;
   chatSection: ReactNode;
-  navbarSection: ReactNode;
+  sideMenu: ReactNode;
 }
 
 const ChatTemplates: FC<ChatTemplatesProps> = ({
-  navbarSection,
+  sideMenu,
   sidebar,
   chatSection,
 }) => {
   return (
     <div className="h-screen flex flex-col justify-center items-center">
-      {navbarSection}
+      {/* {navbarSection} */}
       <div className={cn('flex size-full bg-background rounded-md')}>
-        <div className="size-full rounded-lg md:max-w-[380px]">{sidebar}</div>
-        <div className="flex-1 rounded-lg flex-col relative hidden md:flex">
+        <div className="flex size-full rounded-lg md:max-w-[450px]">
+          <div className="w-[12%]">{sideMenu}</div>
+          <div className="w-[88%]">{sidebar}</div>
+        </div>
+        <div className="flex-1 rounded-lg flex-row relative hidden md:flex">
           {chatSection}
         </div>
       </div>
