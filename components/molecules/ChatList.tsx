@@ -28,8 +28,9 @@ export function ChatList({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 p-2  cursor-pointer hover:bg-accent relative h-full',
+        'flex items-center border-l-2 border-transparent gap-3 py-2 px-3  cursor-pointer hover:bg-accent relative h-full',
         active && 'bg-accent',
+        active && ' border-primary',
         className
       )}
     >

@@ -90,11 +90,11 @@ export default function ChatPage() {
     if (selectedRoom && session?.user.id) {
       prependOrUpdateChat({
         id: selectedRoom.roomId,
-        type: 'private', // assuming it's always private in this case
+        type: 'private',
         user: selectedRoom.user,
-        unreadCount: 0, // you're the sender
+        unreadCount: 0,
         latestMessage: {
-          id: 'temp-id-' + Date.now(), // temporary ID for optimistic message
+          id: 'temp-id-' + Date.now(),
           senderId: session.user.id,
           content: messageContent,
           createdAt: new Date().toISOString(),
