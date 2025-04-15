@@ -16,7 +16,6 @@ const ChatHeader = ({ name, status, avatar, className }: ChatHeaderProps) => {
       className={`border-b p-4 flex items-center justify-between ${className}`}
     >
       <div className="flex items-center gap-3">
-        {/* <AvatarWithStatus src={avatar} alt={name} fallback={name.substring(0, 2)} /> */}
         <Avatar className={`h-10 w-10`}>
           <AvatarImage src={avatar} alt={''} />
           <AvatarFallback>{name.substring(0, 2)}</AvatarFallback>

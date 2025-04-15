@@ -7,7 +7,7 @@ export interface ChatListTypeResponse {
 export interface ChatListType {
   id: string;
   type: string;
-  users: User[];
+  user: User;
   latestMessage: LatestMessage;
   unreadCount: number;
 }

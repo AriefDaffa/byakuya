@@ -8,12 +8,10 @@ interface ChatListProps {
   avatar: string;
   name: string;
   message: string;
-  time: string;
+  time?: string;
   fallback: string;
   unread?: number;
-  online?: boolean;
   active?: boolean;
-  color?: string;
   className?: string;
 }
 
@@ -24,21 +22,18 @@ export function ChatList({
   time,
   unread,
   fallback,
-  //   online = false,
   active = false,
-  //   color = 'bg-blue-500',
-
   className,
 }: ChatListProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-3 p-2 mt-1 rounded-lg cursor-pointer hover:bg-accent relative',
+        'flex items-center gap-3 p-2  cursor-pointer hover:bg-accent relative h-full',
         active && 'bg-accent',
         className
       )}
     >
-      <Avatar className={`h-10 w-10`}>
+      <Avatar className={`h-12 w-12`}>
         <AvatarImage src={avatar} alt={''} />
         <AvatarFallback>{fallback}</AvatarFallback>
       </Avatar>

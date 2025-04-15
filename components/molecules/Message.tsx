@@ -8,7 +8,7 @@ interface MessageItem {
   sender: string;
   avatar: string;
   time: string;
-  content: React.ReactNode;
+  content: string;
   isSelf?: boolean;
 }
 
@@ -55,7 +55,6 @@ const Message = ({ messages, className }: MessagesProps) => {
   const groupedMessages = groupMessages(messages);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);

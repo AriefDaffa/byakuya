@@ -2,73 +2,68 @@ import { ScrollArea } from '@/components/atoms/scroll-area';
 import ChatHeader from '@/components/molecules/ChatHeader';
 import Message from '@/components/molecules/Message';
 import MessageInput from '@/components/molecules/MessageInput';
-import { ChatListType } from '@/types/ChatListTypes';
-import { MessageTypes, Receiver } from '@/types/ChatMessageTypes';
+import { SelectedUser } from '@/types/SelectUserTypes';
+import { LoaderCircle } from 'lucide-react';
 import type { Dispatch, FC, SetStateAction } from 'react';
 
 interface ChatSectionProps {
   isLoading: boolean;
-  userId: string;
-  msg: string;
-  setMsg: Dispatch<SetStateAction<string>>;
-  user?: ChatListType;
-  messages: MessageTypes[];
-  receiver: Receiver[];
+  formattedMessages: {
+    id: string;
+    sender: string;
+    avatar: string;
+    time: string;
+    content: string;
+    isSelf?: boolean;
+  }[];
+  chatInput: string;
+  selectedRoom?: SelectedUser;
   handleMessageSent: () => void;
+  setChatInput: Dispatch<SetStateAction<string>>;
 }
 
 const ChatSection: FC<ChatSectionProps> = ({
-  user,
   isLoading,
-  messages,
-  userId,
-  msg,
-  setMsg,
+  formattedMessages,
+  chatInput,
+  setChatInput,
   handleMessageSent,
-  receiver,
+  selectedRoom,
 }) => {
-  console.log(receiver);
-
-  const formattedMessages = messages
-    .map((item) => ({
-      id: item.id,
-      sender:
-        item.senderId === userId
-          ? 'You'
-          : receiver.find((el) => el.user.id !== userId)?.user.name || '',
-      avatar: '',
-      time: item.createdAt,
-      content: item.content,
-      isSelf: item.senderId === userId,
-    }))
-    .reverse();
-
   return (
-    <>
-      {isLoading ? (
+    <div className="relative size-full border-r border-b">
+      {!selectedRoom ? (
         <div className="size-full flex items-center justify-center">
           Select chat to start
         </div>
       ) : (
-        <>
+        <div className="flex flex-col size-full">
           <ChatHeader
-            name={user?.type === 'private' ? user.users[0].name : ''}
+            avatar={selectedRoom?.user.image || ''}
+            name={selectedRoom?.user.name || ''}
             status=""
-            avatar="/placeholder.svg?height=40&width=40"
           />
-          <div className={`flex-1 flex flex-col overflow-hidden`}>
-            <ScrollArea className="flex-1 px-4 h-1">
-              <Message messages={formattedMessages} />
-            </ScrollArea>
+          <div className={`flex-1 `}>
+            {isLoading ? (
+              <div className="size-full flex items-center justify-center">
+                <LoaderCircle className="animate-spin" />
+              </div>
+            ) : (
+              <ScrollArea className="size-full" type="auto">
+                <div className="absolute inset-0 p-2">
+                  <Message messages={formattedMessages} />
+                </div>
+              </ScrollArea>
+            )}
           </div>
           <MessageInput
-            msg={msg}
-            setMsg={setMsg}
+            msg={chatInput}
+            setMsg={setChatInput}
             handleMessageSent={handleMessageSent}
           />
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 };
 

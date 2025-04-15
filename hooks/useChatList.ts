@@ -6,7 +6,6 @@ export function useChatList(userId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // WebSocket Setup
   useEffect(() => {
     if (!userId) return;
 
@@ -68,7 +67,7 @@ export function useChatList(userId: string) {
       };
     }
 
-    fetchChats(); // Fetch data initially
+    fetchChats();
     const cleanupWebSocket = setupWebSocket();
 
     return () => cleanupWebSocket();
