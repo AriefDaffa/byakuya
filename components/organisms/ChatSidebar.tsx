@@ -18,6 +18,7 @@ interface ChatSidebarProps {
   userName?: string;
   avatar?: string;
   selectedChatId?: string;
+  handleOpenChatMob: () => void;
 }
 
 const ChatSidebar: FC<ChatSidebarProps> = ({
@@ -28,6 +29,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
   selectedChatId,
   // avatar,
   setOpenDialog,
+  handleOpenChatMob,
 }) => {
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
@@ -75,7 +77,10 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
           <div className="absolute inset-0">
             {chatList.map((item, idx) => (
               <div
-                onClick={() => onChatSelect(item)}
+                onClick={() => {
+                  onChatSelect(item);
+                  handleOpenChatMob();
+                }}
                 key={idx}
                 className="border-b h-20"
               >

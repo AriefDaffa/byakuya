@@ -31,7 +31,7 @@ const ChatHeader = ({
           <p className="text-sm text-muted-foreground">Available</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className=" items-center gap-2 hidden md:flex">
         <Button variant="ghost" size="icon" className="rounded-full">
           <Video className="h-5 w-5 text-muted-foreground" />
         </Button>

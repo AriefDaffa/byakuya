@@ -9,7 +9,7 @@ interface ReceiverProfileProps {
 
 const ReceiverProfile: FC<ReceiverProfileProps> = ({ avatar, name = '' }) => {
   return (
-    <div className="size-full py-8 flex justify-center flex-col space-y-4">
+    <div className="size-full py-8 px-4 flex justify-center flex-col space-y-4">
       <div className="w-full flex items-center justify-center">
         <GlareCard className="flex flex-col items-center justify-center w-full">
           <Avatar className=" rounded-2xl size-full">

@@ -14,7 +14,7 @@ const SliderBar: FC<SliderBarProps> = ({ open, children, handleClose }) => {
       initial={{ x: '100%' }}
       animate={{ x: open ? 0 : '100%' }}
       transition={{ type: 'spring', bounce: 0 }}
-      className="absolute top-0 right-0 bottom-0 w-[40%] bg-background shadow-xl z-10 border border-l-0"
+      className="absolute top-0 right-0 bottom-0 w-full md:w-[40%] bg-background shadow-xl z-20 border border-l-0"
     >
       <div className="size-full relative">
         <div

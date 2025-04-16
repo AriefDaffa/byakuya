@@ -2,15 +2,15 @@
 
 import { useChat } from '@/hooks/pages/useChat';
 
-import ChatTemplates from '@/components/templates/ChatTemplates';
-import SideMenu from '@/components/organisms/SideMenu';
-import ChatSidebar from '@/components/organisms/ChatSidebar';
-import ChatSection from '@/components/organisms/ChatSection';
 import SearchUserDialog from '@/components/molecules/SearchUserDialog';
+import ChatSection from '@/components/organisms/ChatSection';
+import ChatSidebar from '@/components/organisms/ChatSidebar';
+import SideMenu from '@/components/organisms/SideMenu';
+import ChatTemplates from '@/components/templates/ChatTemplates';
 
-import { useCallback, useState } from 'react';
-import SliderBar from '@/components/organisms/SliderBar';
 import ReceiverProfile from '@/components/molecules/ReceiverProfile';
+import ChatSectionSlider from '@/components/organisms/ChatSectionSlider';
+import SliderBar from '@/components/organisms/SliderBar';
 
 export default function ChatPage() {
   const {
@@ -31,13 +31,11 @@ export default function ChatPage() {
     chatInput,
     setChatInput,
     handleSubmitMessage,
+    handleOpenChatMob,
+    handleOpenProfile,
+    openChatMob,
+    openProfile,
   } = useChat();
-
-  const [openProfile, setOpenProfile] = useState(false);
-
-  const handleOpenProfile = useCallback(() => {
-    setOpenProfile(!openProfile);
-  }, [openProfile]);
 
   return (
     <>
@@ -60,6 +58,8 @@ export default function ChatPage() {
             selectedChatId={selectedRoom?.user.id}
             // dialog handle
             setOpenDialog={setOpenDialog}
+            // open mobile menu
+            handleOpenChatMob={handleOpenChatMob}
           />
         }
         chatSection={
@@ -84,6 +84,31 @@ export default function ChatPage() {
               name={selectedRoom?.user.name}
             />
           </SliderBar>
+        }
+        mobileComp={
+          <>
+            <ChatSectionSlider
+              selectedRoom={selectedRoom}
+              isLoading={isMessageListLoading}
+              formattedMessages={formattedMessages}
+              //send msg
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              handleMessageSent={handleSubmitMessage}
+              // receiver profile
+              handleOpenProfile={handleOpenProfile}
+              // slidebar
+              openSlider={
+                openChatMob && typeof selectedRoom?.user.name === 'string'
+              }
+            />
+            <SliderBar open={openProfile} handleClose={handleOpenProfile}>
+              <ReceiverProfile
+                avatar={selectedRoom?.user.image}
+                name={selectedRoom?.user.name}
+              />
+            </SliderBar>
+          </>
         }
       />
       <SearchUserDialog

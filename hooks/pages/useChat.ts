@@ -1,19 +1,28 @@
-import { useState, useCallback, useMemo } from 'react';
 import { useDebouncedValue } from '@mantine/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import {
+  CreateChatPayload,
+  useCreatePrivateChat,
+} from '@/hooks/fetch/useCreatePrivateChat';
 import { useFetchChatList } from '@/hooks/fetch/useFetchChatList';
 import { useFetchMessages } from '@/hooks/fetch/useFetchMessages';
-import {
-  useCreatePrivateChat,
-  CreateChatPayload,
-} from '@/hooks/fetch/useCreatePrivateChat';
 import { useSearchUsers } from '@/hooks/fetch/useSearchUser';
 import { authClient } from '@/lib/auth-client';
 
-import { SelectedUser } from '@/types/SelectUserTypes';
 import { ChatListType, User } from '@/types/ChatListTypes';
+import { SelectedUser } from '@/types/SelectUserTypes';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export const useChat = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const isChatOpen = searchParams.get('chat') === 'open';
+
+  const [openProfile, setOpenProfile] = useState(false);
+  const [openChatMob, setopenChatMob] = useState(false);
+
   const { useSession } = authClient;
   const { data: session } = useSession();
 
@@ -129,6 +138,26 @@ export const useChat = () => {
     [createChat]
   );
 
+  const handleOpenProfile = useCallback(() => {
+    setOpenProfile(!openProfile);
+  }, [openProfile]);
+
+  const handleOpenChatMob = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (openProfile) {
+      params.delete('chat');
+    } else {
+      params.set('chat', 'open');
+    }
+
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    router.push(newUrl);
+  }, [openProfile, router]);
+
+  useEffect(() => {
+    setopenChatMob(isChatOpen);
+  }, [isChatOpen]);
+
   return {
     session,
     chatList,
@@ -147,5 +176,9 @@ export const useChat = () => {
     chatInput,
     setChatInput,
     handleSubmitMessage,
+    handleOpenProfile,
+    handleOpenChatMob,
+    openProfile,
+    openChatMob,
   };
 };
