@@ -8,6 +8,10 @@ import ChatSidebar from '@/components/organisms/ChatSidebar';
 import ChatSection from '@/components/organisms/ChatSection';
 import SearchUserDialog from '@/components/molecules/SearchUserDialog';
 
+import { useCallback, useState } from 'react';
+import SliderBar from '@/components/organisms/SliderBar';
+import ReceiverProfile from '@/components/molecules/ReceiverProfile';
+
 export default function ChatPage() {
   const {
     session,
@@ -28,6 +32,12 @@ export default function ChatPage() {
     setChatInput,
     handleSubmitMessage,
   } = useChat();
+
+  const [openProfile, setOpenProfile] = useState(false);
+
+  const handleOpenProfile = useCallback(() => {
+    setOpenProfile(!openProfile);
+  }, [openProfile]);
 
   return (
     <>
@@ -61,7 +71,19 @@ export default function ChatPage() {
             chatInput={chatInput}
             setChatInput={setChatInput}
             handleMessageSent={handleSubmitMessage}
+            // receiver profile
+            handleOpenProfile={handleOpenProfile}
+            // slidebar
+            openProfile={openProfile}
           />
+        }
+        rightSidebar={
+          <SliderBar open={openProfile} handleClose={handleOpenProfile}>
+            <ReceiverProfile
+              avatar={selectedRoom?.user.image}
+              name={selectedRoom?.user.name}
+            />
+          </SliderBar>
         }
       />
       <SearchUserDialog

@@ -5,12 +5,14 @@ interface ChatTemplatesProps {
   sidebar: ReactNode;
   chatSection: ReactNode;
   sideMenu: ReactNode;
+  rightSidebar: ReactNode;
 }
 
 const ChatTemplates: FC<ChatTemplatesProps> = ({
   sideMenu,
   sidebar,
   chatSection,
+  rightSidebar,
 }) => {
   return (
     <div className="h-screen flex flex-col justify-center items-center">
@@ -20,8 +22,9 @@ const ChatTemplates: FC<ChatTemplatesProps> = ({
           <div className="w-[12%]">{sideMenu}</div>
           <div className="w-[88%]">{sidebar}</div>
         </div>
-        <div className="flex-1 rounded-lg flex-row relative hidden md:flex">
+        <div className="flex-1 w-full relative hidden md:flex">
           {chatSection}
+          {rightSidebar}
         </div>
       </div>
     </div>

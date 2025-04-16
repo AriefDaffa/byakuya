@@ -8,14 +8,20 @@ interface ChatHeaderProps {
   status: string;
   avatar: string;
   className?: string;
+  handleOpenProfile: () => void;
 }
 
-const ChatHeader = ({ name, avatar, className }: ChatHeaderProps) => {
+const ChatHeader = ({
+  name,
+  avatar,
+  className,
+  handleOpenProfile,
+}: ChatHeaderProps) => {
   return (
     <div
       className={`border-b p-4 flex items-center justify-between ${className}`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3" onClick={handleOpenProfile}>
         <Avatar className={`h-10 w-10`}>
           <AvatarImage src={avatar} alt={''} />
           <AvatarFallback>{name.substring(0, 2)}</AvatarFallback>

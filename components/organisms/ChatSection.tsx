@@ -3,6 +3,7 @@ import ChatHeader from '@/components/molecules/ChatHeader';
 import Message from '@/components/molecules/Message';
 import MessageInput from '@/components/molecules/MessageInput';
 import { SelectedUser } from '@/types/SelectUserTypes';
+import { motion } from 'framer-motion';
 import { LoaderCircle } from 'lucide-react';
 import type { Dispatch, FC, SetStateAction } from 'react';
 
@@ -18,7 +19,9 @@ interface ChatSectionProps {
   }[];
   chatInput: string;
   selectedRoom?: SelectedUser;
+  openProfile: boolean;
   handleMessageSent: () => void;
+  handleOpenProfile: () => void;
   setChatInput: Dispatch<SetStateAction<string>>;
 }
 
@@ -29,9 +32,16 @@ const ChatSection: FC<ChatSectionProps> = ({
   setChatInput,
   handleMessageSent,
   selectedRoom,
+  handleOpenProfile,
+  openProfile,
 }) => {
   return (
-    <div className="relative size-full border-r border-b">
+    <motion.div
+      initial={false}
+      animate={{ width: openProfile ? '60%' : '100%' }}
+      transition={{ type: 'spring', bounce: 0 }}
+      className="relative size-full border-r border-b"
+    >
       {!selectedRoom ? (
         <div className="size-full flex items-center justify-center">
           Select chat to start
@@ -41,6 +51,7 @@ const ChatSection: FC<ChatSectionProps> = ({
           <ChatHeader
             avatar={selectedRoom?.user.image || ''}
             name={selectedRoom?.user.name || ''}
+            handleOpenProfile={handleOpenProfile}
             status=""
           />
           <div className={`flex-1 `}>
@@ -63,7 +74,7 @@ const ChatSection: FC<ChatSectionProps> = ({
           />
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
