@@ -1,7 +1,8 @@
+import { Toaster } from '@/components/atoms/sonner';
+import { ThemeProvider } from '@/components/atoms/theme-provider';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import { ThemeProvider } from '@/components/atoms/theme-provider';
-import { Toaster } from '@/components/atoms/sonner';
+import { Suspense } from 'react';
 import './globals.css';
 
 const geistSans = Geist({
@@ -35,7 +36,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <Suspense fallback={null}>{children}</Suspense>
           <Toaster richColors />
         </ThemeProvider>
       </body>
