@@ -35,6 +35,9 @@ export default function ChatPage() {
     handleOpenProfile,
     openChatMob,
     openProfile,
+    hasMore,
+    loadMore,
+    loadingOlderMessages,
   } = useChat();
 
   return (
@@ -75,6 +78,10 @@ export default function ChatPage() {
             handleOpenProfile={handleOpenProfile}
             // slidebar
             openProfile={openProfile}
+            // load more msg
+            hasNextPage={hasMore}
+            loadMore={loadMore}
+            loadingOlderMessages={loadingOlderMessages}
           />
         }
         rightSidebar={

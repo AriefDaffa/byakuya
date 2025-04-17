@@ -44,6 +44,9 @@ export const useChat = () => {
     receiver,
     loading: isMessageListLoading,
     sendMessage,
+    loadMore,
+    hasMore,
+    loadingOlderMessages,
   } = useFetchMessages(selectedRoom?.roomId || '', session?.user.id || '');
 
   const { data: usersList, loading: userSearchLoading } =
@@ -180,5 +183,8 @@ export const useChat = () => {
     handleOpenChatMob,
     openProfile,
     openChatMob,
+    hasMore,
+    loadMore,
+    loadingOlderMessages,
   };
 };

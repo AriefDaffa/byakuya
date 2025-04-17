@@ -6,6 +6,7 @@ import { SelectedUser } from '@/types/SelectUserTypes';
 import { motion } from 'framer-motion';
 import { LoaderCircle } from 'lucide-react';
 import type { Dispatch, FC, SetStateAction } from 'react';
+import { Button } from '../atoms/button';
 
 interface ChatSectionProps {
   isLoading: boolean;
@@ -20,8 +21,11 @@ interface ChatSectionProps {
   chatInput: string;
   selectedRoom?: SelectedUser;
   openProfile: boolean;
+  loadingOlderMessages: boolean;
+  hasNextPage: boolean;
   handleMessageSent: () => void;
   handleOpenProfile: () => void;
+  loadMore: () => void;
   setChatInput: Dispatch<SetStateAction<string>>;
 }
 
@@ -34,6 +38,9 @@ const ChatSection: FC<ChatSectionProps> = ({
   selectedRoom,
   handleOpenProfile,
   openProfile,
+  hasNextPage,
+  loadMore,
+  loadingOlderMessages,
 }) => {
   return (
     <motion.div
@@ -43,7 +50,7 @@ const ChatSection: FC<ChatSectionProps> = ({
       className="relative size-full border-r border-b"
     >
       {!selectedRoom ? (
-        <div className="size-full flex items-center justify-center">
+        <div className="size-full flex items-center justify-center text-muted-foreground">
           Select chat to start
         </div>
       ) : (
@@ -62,6 +69,20 @@ const ChatSection: FC<ChatSectionProps> = ({
             ) : (
               <ScrollArea className="size-full" type="auto">
                 <div className="absolute inset-0 p-2">
+                  {hasNextPage && (
+                    <div className="w-full flex items-center justify-center">
+                      <Button
+                        onClick={loadMore}
+                        className="rounded-full"
+                        variant="outline"
+                        disabled={loadingOlderMessages}
+                      >
+                        {loadingOlderMessages
+                          ? 'Loading...'
+                          : 'Load more messages'}
+                      </Button>
+                    </div>
+                  )}
                   <Message messages={formattedMessages} />
                 </div>
               </ScrollArea>

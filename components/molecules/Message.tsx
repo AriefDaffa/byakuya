@@ -68,7 +68,7 @@ const Message = ({ messages, className }: MessagesProps) => {
               group.messages[0].isSelf ? 'flex-row-reverse' : ''
             }`}
           >
-            <Avatar className="h-10 w-10">
+            <Avatar className="h-10 w-10 hidden md:block">
               <AvatarImage src={group.avatar} alt={group.sender} />
               <AvatarFallback>{group.sender.substring(0, 1)}</AvatarFallback>
             </Avatar>

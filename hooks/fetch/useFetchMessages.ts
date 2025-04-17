@@ -17,12 +17,19 @@ export function useFetchMessages(roomId: string, user_id: string) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(1);
-  const [hasMore, setHasMore] = useState<boolean>(true);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+
   const wsRef = useRef<WebSocket | null>(null);
 
   const fetchMessages = useCallback(
-    async (pageNum: number = 1) => {
-      setLoading(true);
+    async (pageNum: number = 1, isLoadMore = false) => {
+      if (isLoadMore) {
+        setLoadingOlderMessages(true);
+      } else {
+        setLoading(true);
+      }
+
       try {
         const res = await fetch(`${API_URL}?room_id=${roomId}&page=${pageNum}`);
         if (!res.ok) throw new Error('Failed to fetch');
@@ -37,12 +44,18 @@ export function useFetchMessages(roomId: string, user_id: string) {
         }
 
         setPagination(data.pagination);
-        setHasMore(data.pagination.currentPage < data.pagination.totalPages);
+        setHasMore(
+          data.data.pagination.currentPage < data.data.pagination.totalPages
+        );
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setError('Failed to fetch messages');
       } finally {
-        setLoading(false);
+        if (isLoadMore) {
+          setLoadingOlderMessages(false);
+        } else {
+          setLoading(false);
+        }
       }
     },
     [roomId]
@@ -114,7 +127,7 @@ export function useFetchMessages(roomId: string, user_id: string) {
 
   useEffect(() => {
     if (page > 1) {
-      fetchMessages(page);
+      fetchMessages(page, true); // loading older messages
     }
   }, [page, fetchMessages]);
 
@@ -146,6 +159,7 @@ export function useFetchMessages(roomId: string, user_id: string) {
       setPage((prev) => prev + 1);
     }
   };
+  console.log('hasMore', hasMore);
 
   return {
     messages,
@@ -155,5 +169,7 @@ export function useFetchMessages(roomId: string, user_id: string) {
     receiver,
     loadMore,
     sendMessage,
+    hasMore,
+    loadingOlderMessages,
   };
 }

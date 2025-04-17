@@ -43,7 +43,7 @@ const ChatSectionSlider: FC<ChatSectionSliderProps> = ({
       className="absolute top-0 right-0 bottom-0 w-full bg-background shadow-xl z-10 border border-l-0 md:hidden"
     >
       {!selectedRoom ? (
-        <div className="size-full flex items-center justify-center">
+        <div className="size-full flex items-center justify-center text-muted-foreground">
           Select chat to start
         </div>
       ) : (
@@ -61,7 +61,7 @@ const ChatSectionSlider: FC<ChatSectionSliderProps> = ({
               </div>
             ) : (
               <ScrollArea className="size-full" type="auto">
-                <div className="absolute inset-0 p-2">
+                <div className="absolute inset-0 p-2 px-3">
                   <Message messages={formattedMessages} />
                 </div>
               </ScrollArea>
