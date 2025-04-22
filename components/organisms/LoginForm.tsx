@@ -65,7 +65,7 @@ const LoginForm: FC<LoginFormProps> = ({ onSubmitHandler, isLoading }) => {
               <FormItem>
                 <FormLabel className="mb-1">Password</FormLabel>
                 <FormControl>
-                  <Input placeholder="shadcn" type="password" {...field} />
+                  <Input type="password" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
