@@ -1,6 +1,19 @@
 import { MessageTypes, Receiver } from '@/types/ChatMessageTypes';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+import { v4 as uuidv4 } from 'uuid';
+
+export function generateId(): string {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return uuidv4();
+}
+
 const API_URL = `${process.env.NEXT_PUBLIC_BASE_API_URL}/v1/private-chat`;
 const WS_URL = `${process.env.NEXT_PUBLIC_BASE_WEBSOCKET_URL}/v1/personal-chat`;
 
@@ -135,7 +148,7 @@ export function useFetchMessages(roomId: string, user_id: string) {
     (message: string) => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         const newMessage: MessageTypes = {
-          id: crypto.randomUUID(),
+          id: generateId(),
           senderId: user_id,
           content: message,
           createdAt: new Date().toISOString(),
