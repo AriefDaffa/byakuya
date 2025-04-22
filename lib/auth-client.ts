@@ -1,5 +1,7 @@
 import { createAuthClient } from 'better-auth/react';
 
+console.log('test-log', process.env.NEXT_PUBLIC_BETTER_AUTH_URL);
+
 export const authClient = createAuthClient({
-  baseURL: 'http://backend:3001',
+  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
 });
