@@ -5,9 +5,14 @@ import type { FC } from 'react';
 interface ReceiverProfileProps {
   avatar?: string;
   name?: string;
+  email?: string;
 }
 
-const ReceiverProfile: FC<ReceiverProfileProps> = ({ avatar, name = '' }) => {
+const ReceiverProfile: FC<ReceiverProfileProps> = ({
+  avatar,
+  name = '',
+  email = '',
+}) => {
   return (
     <div className="size-full py-8 px-4 flex justify-center flex-col space-y-4">
       <div className="w-full flex items-center justify-center">
@@ -17,8 +22,9 @@ const ReceiverProfile: FC<ReceiverProfileProps> = ({ avatar, name = '' }) => {
           </Avatar>
         </GlareCard>
       </div>
-      <div className="">
+      <div className="flex flex-col justify-center">
         <div className="text-center text-4xl font-bold">{name}</div>
+        <div className="text-muted-foreground text-center">{email}</div>
       </div>
     </div>
   );

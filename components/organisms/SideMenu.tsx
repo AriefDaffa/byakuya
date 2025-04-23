@@ -1,8 +1,10 @@
 'use client';
 
 import { Button } from '@/components/atoms/button';
+import { authClient } from '@/lib/auth-client';
 import { LogOut, Moon, Sun, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FC } from 'react';
 
 interface SideMenuProps {
@@ -12,6 +14,7 @@ interface SideMenuProps {
 
 const SideMenu: FC<SideMenuProps> = ({}) => {
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -32,7 +35,19 @@ const SideMenu: FC<SideMenuProps> = ({}) => {
             {theme === 'dark' ? <Sun /> : <Moon />}
           </Button>
         )}
-        <Button variant="ghost" className="">
+        <Button
+          variant="ghost"
+          className=""
+          onClick={async () =>
+            await authClient.signOut({
+              fetchOptions: {
+                onSuccess: () => {
+                  router.push('/login');
+                },
+              },
+            })
+          }
+        >
           <LogOut />
         </Button>
       </div>

@@ -17,13 +17,11 @@ const SliderBar: FC<SliderBarProps> = ({ open, children, handleClose }) => {
       className="absolute top-0 right-0 bottom-0 w-full md:w-[40%] bg-background shadow-xl z-20 border border-l-0"
     >
       <div className="size-full relative">
-        <div
-          className="absolute top-3 right-3 cursor-pointer"
-          onClick={handleClose}
-        >
-          <X />
+        <div className="w-full h-20 flex items-center justify-between px-4 border-b">
+          <div className="text-2xl font-bold">Detail</div>
+          <X onClick={handleClose} />
         </div>
-        {children}
+        <div className="">{children}</div>
       </div>
     </motion.div>
   );
