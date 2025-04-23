@@ -19,9 +19,9 @@ const ChatTemplates: FC<ChatTemplatesProps> = ({
   return (
     <div className="h-screen flex flex-col justify-center items-center relative overflow-x-hidden">
       <div className={cn('flex size-full bg-background rounded-md')}>
-        <div className="flex size-full rounded-lg md:max-w-[300px] lg:max-w-[450px]">
-          <div className="hidden md:w-[12%] lg:block ">{sideMenu}</div>
-          <div className="w-full lg:w-[88%]">{sidebar}</div>
+        <div className="flex size-full rounded-lg md:max-w-[450px]">
+          <div className="hidden md:w-[15%] lg:block">{sideMenu}</div>
+          <div className="w-full lg:w-[85%]">{sidebar}</div>
         </div>
         <div className="flex-1 w-full relative hidden md:flex">
           {chatSection}
