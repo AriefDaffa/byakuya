@@ -5,12 +5,10 @@ import { useChat } from '@/hooks/pages/useChat';
 import SearchUserDialog from '@/components/molecules/SearchUserDialog';
 import ChatSection from '@/components/organisms/ChatSection';
 import ChatSidebar from '@/components/organisms/ChatSidebar';
-import SideMenu from '@/components/organisms/SideMenu';
 import ChatTemplates from '@/components/templates/ChatTemplates';
 
-import ReceiverProfile from '@/components/molecules/ReceiverProfile';
 import ChatSectionSlider from '@/components/organisms/ChatSectionSlider';
-import SliderBar from '@/components/organisms/SliderBar';
+import ReceiverSheet from '@/components/organisms/ReceiverSheet';
 
 export default function ChatPage() {
   const {
@@ -38,17 +36,12 @@ export default function ChatPage() {
     hasMore,
     loadMore,
     loadingOlderMessages,
+    setOpenProfile,
   } = useChat();
 
   return (
     <>
       <ChatTemplates
-        sideMenu={
-          <SideMenu
-            avatar={session?.user.image || ''}
-            userName={session?.user.name || ''}
-          />
-        }
         sidebar={
           <ChatSidebar
             isLoading={isChatListLoading}
@@ -84,39 +77,29 @@ export default function ChatPage() {
             loadingOlderMessages={loadingOlderMessages}
           />
         }
-        rightSidebar={
-          <SliderBar open={openProfile} handleClose={handleOpenProfile}>
-            <ReceiverProfile
-              avatar={selectedRoom?.user.image}
-              name={selectedRoom?.user.name}
-            />
-          </SliderBar>
-        }
         mobileComp={
-          <>
-            <ChatSectionSlider
-              selectedRoom={selectedRoom}
-              isLoading={isMessageListLoading}
-              formattedMessages={formattedMessages}
-              //send msg
-              chatInput={chatInput}
-              setChatInput={setChatInput}
-              handleMessageSent={handleSubmitMessage}
-              // receiver profile
-              handleOpenProfile={handleOpenProfile}
-              // slidebar
-              openSlider={
-                openChatMob && typeof selectedRoom?.user.name === 'string'
-              }
-            />
-            <SliderBar open={openProfile} handleClose={handleOpenProfile}>
-              <ReceiverProfile
-                avatar={selectedRoom?.user.image}
-                name={selectedRoom?.user.name}
-              />
-            </SliderBar>
-          </>
+          <ChatSectionSlider
+            selectedRoom={selectedRoom}
+            isLoading={isMessageListLoading}
+            formattedMessages={formattedMessages}
+            //send msg
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            handleMessageSent={handleSubmitMessage}
+            // receiver profile
+            handleOpenProfile={handleOpenProfile}
+            // slidebar
+            openSlider={
+              openChatMob && typeof selectedRoom?.user.name === 'string'
+            }
+          />
         }
+      />
+      <ReceiverSheet
+        open={openProfile}
+        setOpen={setOpenProfile}
+        avatar={selectedRoom?.user.image}
+        name={selectedRoom?.user.name}
       />
       <SearchUserDialog
         openDialog={openDialog}

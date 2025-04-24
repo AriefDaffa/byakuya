@@ -37,7 +37,6 @@ const ChatSection: FC<ChatSectionProps> = ({
   handleMessageSent,
   selectedRoom,
   handleOpenProfile,
-  openProfile,
   hasNextPage,
   loadMore,
   loadingOlderMessages,
@@ -45,7 +44,7 @@ const ChatSection: FC<ChatSectionProps> = ({
   return (
     <motion.div
       initial={false}
-      animate={{ width: openProfile ? '60%' : '100%' }}
+      // animate={{ width: openProfile ? '60%' : '100%' }}
       transition={{ type: 'spring', bounce: 0 }}
       className="relative size-full border-r border-b"
     >

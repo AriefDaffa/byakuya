@@ -186,5 +186,6 @@ export const useChat = () => {
     hasMore,
     loadMore,
     loadingOlderMessages,
+    setOpenProfile,
   };
 };

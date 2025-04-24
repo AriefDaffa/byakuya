@@ -4,16 +4,12 @@ import type { FC, ReactNode } from 'react';
 interface ChatTemplatesProps {
   sidebar: ReactNode;
   chatSection: ReactNode;
-  sideMenu: ReactNode;
-  rightSidebar: ReactNode;
   mobileComp: ReactNode;
 }
 
 const ChatTemplates: FC<ChatTemplatesProps> = ({
-  // sideMenu,
   sidebar,
   chatSection,
-  rightSidebar,
   mobileComp,
 }) => {
   return (
@@ -24,7 +20,6 @@ const ChatTemplates: FC<ChatTemplatesProps> = ({
         </div>
         <div className="flex-1 w-full relative hidden md:flex">
           {chatSection}
-          {rightSidebar}
         </div>
       </div>
       <div className="block md:hidden">{mobileComp}</div>
