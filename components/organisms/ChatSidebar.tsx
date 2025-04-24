@@ -9,6 +9,7 @@ import { ChatListType } from '@/types/ChatListTypes';
 import { formatChatTimestamp } from '@/utils/formatChatTimestamp';
 import { CircleSlash2, MessageSquarePlus } from 'lucide-react';
 import { Dispatch, FC, SetStateAction } from 'react';
+import SidebarHeader from '../molecules/SidebarHeader';
 
 interface ChatSidebarProps {
   isLoading: boolean;
@@ -34,12 +35,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
       <div className="border-b px-3 pt-6 pb-4 space-y-4">
-        <div className="flex gap-2 items-center">
-          <div className="">
-            <div className="text-xs text-muted-foreground">Welcome,</div>
-            <div className="text-xl font-semibold">{userName}</div>
-          </div>
-        </div>
+        <SidebarHeader userName={userName} />
         <Input placeholder="Search here..." />
       </div>
       {isLoading ? (

@@ -22,7 +22,7 @@ const SideMenu: FC<SideMenuProps> = ({}) => {
   }, []);
 
   return (
-    <div className="size-full items-center justify-between flex flex-col gap-2 py-4">
+    <div className="size-full items-center justify-center flex flex-col gap-2 py-4">
       <div className="flex flex-col items-center gap-2">
         <Button variant="ghost">
           <User />
