@@ -17,6 +17,7 @@ export const useSearchUsers = (keyword: string) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ keyword }),
+          credentials: 'include',
         }
       );
 

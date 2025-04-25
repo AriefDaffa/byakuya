@@ -172,7 +172,6 @@ export function useFetchMessages(roomId: string, user_id: string) {
       setPage((prev) => prev + 1);
     }
   };
-  console.log('hasMore', hasMore);
 
   return {
     messages,

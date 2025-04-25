@@ -25,7 +25,8 @@ export function useFetchChatList(userId: string) {
       try {
         setLoading(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_API_URL}/v1/chat-list?user_id=${userId}`
+          `${process.env.NEXT_PUBLIC_BASE_API_URL}/v1/chat-list?user_id=${userId}`,
+          { credentials: 'include' }
         );
         if (!res.ok) throw new Error('Failed to load chat list');
         const data: ChatListTypeResponse = await res.json();
