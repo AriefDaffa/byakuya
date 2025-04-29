@@ -12,6 +12,7 @@ import { Dispatch, FC, SetStateAction } from 'react';
 import Empty from '../atoms/empty';
 import Loader from '../atoms/loader';
 import SidebarHeader from '../molecules/SidebarHeader';
+import { useMediaQuery } from '@mantine/hooks';
 
 interface ChatSidebarProps {
   isLoading: boolean;
@@ -43,6 +44,8 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
   searchResult,
   setOpenChatSlider,
 }) => {
+  const matches = useMediaQuery('(min-width: 768px)');
+
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
       <div className="border-b px-3 pt-6 pb-4 space-y-4">
@@ -131,7 +134,10 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
                 onClick={() => {
                   onChatSelect(item);
                   handleOpenChatMob();
-                  setOpenChatSlider(true);
+
+                  if (!matches) {
+                    setOpenChatSlider(true);
+                  }
                 }}
                 key={idx}
                 className="border-b h-20"
