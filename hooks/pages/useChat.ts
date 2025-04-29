@@ -13,6 +13,7 @@ import { authClient } from '@/lib/auth-client';
 import { ChatListType, User } from '@/types/ChatListTypes';
 import { SelectedUser } from '@/types/SelectUserTypes';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchMessages } from '../fetch/useSearchMessages';
 
 export const useChat = () => {
   const router = useRouter();
@@ -30,8 +31,10 @@ export const useChat = () => {
   const [messageKeyword, setMessageKeyword] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
+  const [sidebarKeyword, setSidebarKeyword] = useState('');
 
   const [debounced] = useDebouncedValue(messageKeyword, 200);
+  const [debouncedSidebar] = useDebouncedValue(sidebarKeyword, 200);
 
   const {
     chatList,
@@ -52,6 +55,7 @@ export const useChat = () => {
   const { data: usersList, loading: userSearchLoading } =
     useSearchUsers(debounced);
   const { createChat, loading: isCreatePCLoading } = useCreatePrivateChat();
+  const { data: searchSidebarResult } = useSearchMessages(debouncedSidebar);
 
   const handleSelectChat = (data: ChatListType) => {
     setSelectedRoom({
@@ -87,6 +91,10 @@ export const useChat = () => {
 
   const handleKeywordChange = useCallback((e: string) => {
     setMessageKeyword(e);
+  }, []);
+
+  const handleSidebarKeywordChange = useCallback((e: string) => {
+    setSidebarKeyword(e);
   }, []);
 
   const handleSubmitMessage = useCallback(() => {
@@ -187,5 +195,11 @@ export const useChat = () => {
     loadMore,
     loadingOlderMessages,
     setOpenProfile,
+
+    //sidebar
+    searchSidebarResult,
+    handleSidebarKeywordChange,
+    debouncedSidebar,
+    sidebarKeyword,
   };
 };

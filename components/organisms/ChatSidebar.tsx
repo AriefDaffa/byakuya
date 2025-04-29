@@ -3,12 +3,14 @@ import { Button } from '@/components/atoms/button';
 
 import { Input } from '@/components/atoms/input';
 import { ScrollArea } from '@/components/atoms/scroll-area';
-import { Skeleton } from '@/components/atoms/skeleton';
 import { ChatList } from '@/components/molecules/ChatList';
 import { ChatListType } from '@/types/ChatListTypes';
+import { SidebarMergedData } from '@/types/SidebarSearchTypes';
 import { formatChatTimestamp } from '@/utils/formatChatTimestamp';
-import { CircleSlash2, MessageSquarePlus } from 'lucide-react';
+import { MessageSquarePlus } from 'lucide-react';
 import { Dispatch, FC, SetStateAction } from 'react';
+import Empty from '../atoms/empty';
+import Loader from '../atoms/loader';
 import SidebarHeader from '../molecules/SidebarHeader';
 
 interface ChatSidebarProps {
@@ -16,10 +18,14 @@ interface ChatSidebarProps {
   chatList: ChatListType[];
   onChatSelect: (data: ChatListType) => void;
   setOpenDialog: Dispatch<SetStateAction<boolean>>;
+  sidebarkeyword: string;
+  setSidebarKeyword: Dispatch<SetStateAction<string>>;
+  isSearching: boolean;
   userName?: string;
   avatar?: string;
   selectedChatId?: string;
   handleOpenChatMob: () => void;
+  searchResult?: SidebarMergedData;
 }
 
 const ChatSidebar: FC<ChatSidebarProps> = ({
@@ -28,46 +34,87 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
   onChatSelect,
   userName,
   selectedChatId,
-  // avatar,
   setOpenDialog,
   handleOpenChatMob,
+  sidebarkeyword,
+  setSidebarKeyword,
+  isSearching,
+  searchResult,
 }) => {
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
       <div className="border-b px-3 pt-6 pb-4 space-y-4">
         <SidebarHeader userName={userName} />
-        <Input placeholder="Search here..." />
+        <Input
+          value={sidebarkeyword}
+          onChange={(e) => setSidebarKeyword(e.target.value)}
+          placeholder="Search user or messages here..."
+        />
       </div>
-      {isLoading ? (
-        Array.from(Array(5), (_, i) => (
-          <div
-            key={i}
-            className={
-              'flex items-center gap-3 p-2 mt-1 rounded-lg cursor-pointer hover:bg-accent relative'
-            }
-          >
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex justify-between items-center">
-                <Skeleton className="h-4 w-1/3" />
-                <Skeleton className="h-3 w-10" />
+
+      {sidebarkeyword !== '' ? (
+        isSearching ? (
+          <Loader />
+        ) : (
+          <ScrollArea className="size-full" type="auto">
+            <div className="absolute inset-0">
+              <div>
+                <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
+                  Messages
+                </div>
+                {searchResult?.messages.map((item, idx) => (
+                  <div
+                    onClick={() => {
+                      handleOpenChatMob();
+                    }}
+                    key={idx}
+                    className="border-b h-20"
+                  >
+                    <ChatList
+                      avatar={item.userImage || ''}
+                      name={item.userName}
+                      message={item.content}
+                      time={
+                        item.createdAt
+                          ? formatChatTimestamp(item.createdAt)
+                          : ''
+                      }
+                      fallback={item.userName.charAt(0)}
+                    />
+                  </div>
+                ))}
               </div>
-              <Skeleton className="h-3 w-2/3" />
+              <div>
+                <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
+                  Users
+                </div>
+                {searchResult?.users.map((item, idx) => (
+                  <div
+                    onClick={() => {
+                      handleOpenChatMob();
+                    }}
+                    key={idx}
+                    className="border-b h-20"
+                  >
+                    <ChatList
+                      avatar={item.image || ''}
+                      name={item.name}
+                      message={''}
+                      fallback={item.name.charAt(0)}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))
+          </ScrollArea>
+        )
+      ) : isLoading ? (
+        <Loader />
       ) : chatList.length === 0 ? (
-        <div className="h-full flex items-center justify-center">
-          <div className="space-y-2 text-center px-4">
-            <div className="flex justify-center mb-4">
-              <CircleSlash2 className="w-20 h-20 text-muted-foreground" />
-            </div>
-            <div className="text-xl font-semibold">Your inbox is empty</div>
-            <div className="text-sm text-muted-foreground">
-              Once you start a conversation, you&apos;ll see it listed here
-            </div>
-          </div>
-        </div>
+        <Empty
+          title="Chat Empty"
+          subTitle="Once you start a conversation, you'll see it listed here"
+        />
       ) : (
         <ScrollArea className="size-full" type="auto">
           <div className="absolute inset-0">

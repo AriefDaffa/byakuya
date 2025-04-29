@@ -6,9 +6,11 @@ import SearchUserDialog from '@/components/molecules/SearchUserDialog';
 import ChatSection from '@/components/organisms/ChatSection';
 import ChatSidebar from '@/components/organisms/ChatSidebar';
 import ChatTemplates from '@/components/templates/ChatTemplates';
+import { Fragment } from 'react';
 
 import ChatSectionSlider from '@/components/organisms/ChatSectionSlider';
 import ReceiverSheet from '@/components/organisms/ReceiverSheet';
+import { useSidebarSearch } from '@/hooks/pages/Chat/useSidebarSearch';
 
 export default function ChatPage() {
   const {
@@ -39,23 +41,41 @@ export default function ChatPage() {
     setOpenProfile,
   } = useChat();
 
+  const { data, loading, setSidebarKeyword, sidebarKeyword } =
+    useSidebarSearch();
+
   return (
-    <>
+    <Fragment>
       <ChatTemplates
         sidebar={
           <ChatSidebar
             isLoading={isChatListLoading}
             chatList={chatList}
             onChatSelect={handleSelectChat}
+            //
             // logged user
+            //
             userName={session?.user.name}
             avatar={session?.user.image || ''}
+            //
             // selected chat
+            //
             selectedChatId={selectedRoom?.user.id}
+            //
             // dialog handle
+            //
             setOpenDialog={setOpenDialog}
+            //
             // open mobile menu
+            //
             handleOpenChatMob={handleOpenChatMob}
+            //
+            // sidebar search function
+            //
+            sidebarkeyword={sidebarKeyword}
+            setSidebarKeyword={setSidebarKeyword}
+            isSearching={loading}
+            searchResult={data}
           />
         }
         chatSection={
@@ -114,6 +134,6 @@ export default function ChatPage() {
         isCreatePCLoading={isCreatePCLoading}
         handleOnUserClick={handleCreatePrivateChat}
       />
-    </>
+    </Fragment>
   );
 }

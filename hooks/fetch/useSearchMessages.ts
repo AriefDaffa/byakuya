@@ -1,8 +1,11 @@
-import { UserData, UserResponse } from '@/types/UserTypes';
+import {
+  SidebarSearchData,
+  SidebarSearchResponse,
+} from '@/types/SidebarSearchTypes';
 import { useCallback, useEffect, useState } from 'react';
 
-export const useSearchUsers = (keyword: string) => {
-  const [data, setData] = useState<UserData[] | undefined>();
+export const useSearchMessages = (keyword: string) => {
+  const [data, setData] = useState<SidebarSearchData[] | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -12,7 +15,7 @@ export const useSearchUsers = (keyword: string) => {
 
     try {
       const request = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_API_URL}/v1/user/search`,
+        `${process.env.NEXT_PUBLIC_BASE_API_URL}/v1/chat/search`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -21,7 +24,7 @@ export const useSearchUsers = (keyword: string) => {
         }
       );
 
-      const response: UserResponse = await request.json();
+      const response: SidebarSearchResponse = await request.json();
 
       if (!request.ok) {
         setData(undefined);
