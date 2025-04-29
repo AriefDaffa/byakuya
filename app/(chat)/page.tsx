@@ -8,9 +8,11 @@ import ChatSidebar from '@/components/organisms/ChatSidebar';
 import ChatTemplates from '@/components/templates/ChatTemplates';
 import { Fragment } from 'react';
 
-import ChatSectionSlider from '@/components/organisms/ChatSectionSlider';
+import SheetLayer from '@/components/molecules/SheetLayer';
 import ReceiverSheet from '@/components/organisms/ReceiverSheet';
+import { useChatSlider } from '@/hooks/pages/Chat/useChatSlider';
 import { useSidebarSearch } from '@/hooks/pages/Chat/useSidebarSearch';
+import ChatHeader from '@/components/molecules/ChatHeader';
 
 export default function ChatPage() {
   const {
@@ -33,7 +35,6 @@ export default function ChatPage() {
     handleSubmitMessage,
     handleOpenChatMob,
     handleOpenProfile,
-    openChatMob,
     openProfile,
     hasMore,
     loadMore,
@@ -43,12 +44,16 @@ export default function ChatPage() {
 
   const { data, loading, setSidebarKeyword, sidebarKeyword } =
     useSidebarSearch();
+  const { openChatSlider, setOpenChatSlider } = useChatSlider();
 
   return (
     <Fragment>
       <ChatTemplates
         sidebar={
           <ChatSidebar
+            //
+            // Chat loader
+            //
             isLoading={isChatListLoading}
             chatList={chatList}
             onChatSelect={handleSelectChat}
@@ -76,6 +81,10 @@ export default function ChatPage() {
             setSidebarKeyword={setSidebarKeyword}
             isSearching={loading}
             searchResult={data}
+            //
+            // Chat slider handler (mobile only)
+            //
+            setOpenChatSlider={setOpenChatSlider}
           />
         }
         chatSection={
@@ -97,24 +106,38 @@ export default function ChatPage() {
             loadingOlderMessages={loadingOlderMessages}
           />
         }
-        mobileComp={
-          <ChatSectionSlider
-            selectedRoom={selectedRoom}
-            isLoading={isMessageListLoading}
-            formattedMessages={formattedMessages}
-            //send msg
-            chatInput={chatInput}
-            setChatInput={setChatInput}
-            handleMessageSent={handleSubmitMessage}
-            // receiver profile
+      />
+      <SheetLayer
+        open={openChatSlider}
+        setOpen={setOpenChatSlider}
+        headerComp={
+          <ChatHeader
+            avatar={selectedRoom?.user.image || ''}
+            name={selectedRoom?.user.name || ''}
             handleOpenProfile={handleOpenProfile}
-            // slidebar
-            openSlider={
-              openChatMob && typeof selectedRoom?.user.name === 'string'
-            }
+            status=""
           />
         }
-      />
+      >
+        <ChatSection
+          selectedRoom={selectedRoom}
+          isLoading={isMessageListLoading}
+          formattedMessages={formattedMessages}
+          //send msg
+          chatInput={chatInput}
+          setChatInput={setChatInput}
+          handleMessageSent={handleSubmitMessage}
+          // receiver profile
+          handleOpenProfile={handleOpenProfile}
+          // slidebar
+          openProfile={openProfile}
+          // load more msg
+          hasNextPage={hasMore}
+          loadMore={loadMore}
+          loadingOlderMessages={loadingOlderMessages}
+          withHeader={false}
+        />
+      </SheetLayer>
       <ReceiverSheet
         open={openProfile}
         setOpen={setOpenProfile}

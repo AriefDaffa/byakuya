@@ -3,7 +3,6 @@ import ChatHeader from '@/components/molecules/ChatHeader';
 import Message from '@/components/molecules/Message';
 import MessageInput from '@/components/molecules/MessageInput';
 import { SelectedUser } from '@/types/SelectUserTypes';
-import { motion } from 'framer-motion';
 import { LoaderCircle } from 'lucide-react';
 import type { Dispatch, FC, SetStateAction } from 'react';
 import { Button } from '../atoms/button';
@@ -19,7 +18,6 @@ interface ChatSectionProps {
     isSelf?: boolean;
   }[];
   chatInput: string;
-  selectedRoom?: SelectedUser;
   openProfile: boolean;
   loadingOlderMessages: boolean;
   hasNextPage: boolean;
@@ -27,6 +25,8 @@ interface ChatSectionProps {
   handleOpenProfile: () => void;
   loadMore: () => void;
   setChatInput: Dispatch<SetStateAction<string>>;
+  selectedRoom?: SelectedUser;
+  withHeader?: boolean;
 }
 
 const ChatSection: FC<ChatSectionProps> = ({
@@ -40,26 +40,24 @@ const ChatSection: FC<ChatSectionProps> = ({
   hasNextPage,
   loadMore,
   loadingOlderMessages,
+  withHeader = true,
 }) => {
   return (
-    <motion.div
-      initial={false}
-      // animate={{ width: openProfile ? '60%' : '100%' }}
-      transition={{ type: 'spring', bounce: 0 }}
-      className="relative size-full border-r border-b"
-    >
+    <div className="relative size-full border-r border-b">
       {!selectedRoom ? (
         <div className="size-full flex items-center justify-center text-muted-foreground">
           Select chat to start
         </div>
       ) : (
         <div className="flex flex-col size-full">
-          <ChatHeader
-            avatar={selectedRoom?.user.image || ''}
-            name={selectedRoom?.user.name || ''}
-            handleOpenProfile={handleOpenProfile}
-            status=""
-          />
+          {withHeader && (
+            <ChatHeader
+              avatar={selectedRoom?.user.image || ''}
+              name={selectedRoom?.user.name || ''}
+              handleOpenProfile={handleOpenProfile}
+              status=""
+            />
+          )}
           <div className={`flex-1 `}>
             {isLoading ? (
               <div className="size-full flex items-center justify-center">
@@ -94,7 +92,7 @@ const ChatSection: FC<ChatSectionProps> = ({
           />
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 

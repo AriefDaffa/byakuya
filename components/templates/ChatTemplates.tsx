@@ -4,14 +4,9 @@ import type { FC, ReactNode } from 'react';
 interface ChatTemplatesProps {
   sidebar: ReactNode;
   chatSection: ReactNode;
-  mobileComp: ReactNode;
 }
 
-const ChatTemplates: FC<ChatTemplatesProps> = ({
-  sidebar,
-  chatSection,
-  mobileComp,
-}) => {
+const ChatTemplates: FC<ChatTemplatesProps> = ({ sidebar, chatSection }) => {
   return (
     <div className="h-screen flex flex-col justify-center items-center relative overflow-x-hidden">
       <div className={cn('flex size-full bg-background rounded-md')}>
@@ -22,7 +17,6 @@ const ChatTemplates: FC<ChatTemplatesProps> = ({
           {chatSection}
         </div>
       </div>
-      <div className="block md:hidden">{mobileComp}</div>
     </div>
   );
 };

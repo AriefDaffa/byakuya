@@ -26,6 +26,7 @@ interface ChatSidebarProps {
   selectedChatId?: string;
   handleOpenChatMob: () => void;
   searchResult: SidebarMergedData;
+  setOpenChatSlider: Dispatch<SetStateAction<boolean>>;
 }
 
 const ChatSidebar: FC<ChatSidebarProps> = ({
@@ -40,6 +41,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
   setSidebarKeyword,
   isSearching,
   searchResult,
+  setOpenChatSlider,
 }) => {
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
@@ -129,6 +131,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
                 onClick={() => {
                   onChatSelect(item);
                   handleOpenChatMob();
+                  setOpenChatSlider(true);
                 }}
                 key={idx}
                 className="border-b h-20"
@@ -137,14 +140,14 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
                   avatar={item.user.image || ''}
                   name={item.user.name}
                   message={item.latestMessage?.content}
+                  unread={item.unreadCount}
+                  fallback={item.user.name.charAt(0)}
+                  active={selectedChatId === item.user.id}
                   time={
                     item.latestMessage
                       ? formatChatTimestamp(item.latestMessage?.createdAt)
                       : ''
                   }
-                  unread={item.unreadCount}
-                  fallback={item.user.name.charAt(0)}
-                  active={selectedChatId === item.user.id}
                 />
               </div>
             ))}
