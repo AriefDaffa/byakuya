@@ -6,7 +6,7 @@ interface LoginTemplatesProps {
 
 const LoginTemplates: FC<LoginTemplatesProps> = ({ loginForm }) => {
   return (
-    <div className="flex h-screen items-center justify-center flex-col md:flex-row">
+    <div className="flex h-screen items-center justify-center flex-col border-t md:flex-row">
       <div className="md:w-1/2">
         <div className="flex justify-center p-4">{loginForm}</div>
       </div>

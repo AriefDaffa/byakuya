@@ -58,6 +58,8 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
         ) : (
           <ScrollArea className="size-full" type="auto">
             <div className="absolute inset-0">
+              {searchResult.messages.length === 0 &&
+                searchResult.users.length === 0 && <Empty title="Not found" />}
               {searchResult.messages.length > 0 && (
                 <div>
                   <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
