@@ -25,7 +25,7 @@ interface ChatSidebarProps {
   avatar?: string;
   selectedChatId?: string;
   handleOpenChatMob: () => void;
-  searchResult?: SidebarMergedData;
+  searchResult: SidebarMergedData;
 }
 
 const ChatSidebar: FC<ChatSidebarProps> = ({
@@ -58,53 +58,57 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
         ) : (
           <ScrollArea className="size-full" type="auto">
             <div className="absolute inset-0">
-              <div>
-                <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
-                  Messages
-                </div>
-                {searchResult?.messages.map((item, idx) => (
-                  <div
-                    onClick={() => {
-                      handleOpenChatMob();
-                    }}
-                    key={idx}
-                    className="border-b h-20"
-                  >
-                    <ChatList
-                      avatar={item.userImage || ''}
-                      name={item.userName}
-                      message={item.content}
-                      time={
-                        item.createdAt
-                          ? formatChatTimestamp(item.createdAt)
-                          : ''
-                      }
-                      fallback={item.userName.charAt(0)}
-                    />
+              {searchResult.messages.length > 0 && (
+                <div>
+                  <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
+                    Messages
                   </div>
-                ))}
-              </div>
-              <div>
-                <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
-                  Users
+                  {searchResult?.messages.map((item, idx) => (
+                    <div
+                      onClick={() => {
+                        handleOpenChatMob();
+                      }}
+                      key={idx}
+                      className="border-b h-20"
+                    >
+                      <ChatList
+                        avatar={item.userImage || ''}
+                        name={item.userName}
+                        message={item.content}
+                        time={
+                          item.createdAt
+                            ? formatChatTimestamp(item.createdAt)
+                            : ''
+                        }
+                        fallback={item.userName.charAt(0)}
+                      />
+                    </div>
+                  ))}
                 </div>
-                {searchResult?.users.map((item, idx) => (
-                  <div
-                    onClick={() => {
-                      handleOpenChatMob();
-                    }}
-                    key={idx}
-                    className="border-b h-20"
-                  >
-                    <ChatList
-                      avatar={item.image || ''}
-                      name={item.name}
-                      message={''}
-                      fallback={item.name.charAt(0)}
-                    />
+              )}
+              {searchResult.users.length > 0 && (
+                <div>
+                  <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
+                    Users
                   </div>
-                ))}
-              </div>
+                  {searchResult?.users.map((item, idx) => (
+                    <div
+                      onClick={() => {
+                        handleOpenChatMob();
+                      }}
+                      key={idx}
+                      className="border-b h-20"
+                    >
+                      <ChatList
+                        avatar={item.image || ''}
+                        name={item.name}
+                        message={''}
+                        fallback={item.name.charAt(0)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </ScrollArea>
         )

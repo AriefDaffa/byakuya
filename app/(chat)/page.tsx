@@ -128,7 +128,7 @@ export default function ChatPage() {
         //sender id
         senderId={session?.user.id}
         // search user result
-        usersList={usersList?.data}
+        usersList={usersList}
         isSearching={userSearchLoading}
         // create PC
         isCreatePCLoading={isCreatePCLoading}
