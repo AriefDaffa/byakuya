@@ -12,8 +12,6 @@ export const useSidebarSearch = () => {
   const { data: userData, loading: userLoading } =
     useSearchUsers(debouncedSidebar);
 
-  console.log({ messages: data ?? [], users: userData ?? [] });
-
   return useMemo(() => {
     return {
       data: { messages: data ?? [], users: userData ?? [] },

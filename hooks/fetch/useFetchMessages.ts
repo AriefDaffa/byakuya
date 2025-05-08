@@ -44,7 +44,12 @@ export function useFetchMessages(roomId: string, user_id: string) {
       }
 
       try {
-        const res = await fetch(`${API_URL}?room_id=${roomId}&page=${pageNum}`);
+        const res = await fetch(
+          `${API_URL}?room_id=${roomId}&page=${pageNum}`,
+          {
+            credentials: 'include',
+          }
+        );
         if (!res.ok) throw new Error('Failed to fetch');
 
         const data = await res.json();
@@ -81,7 +86,6 @@ export function useFetchMessages(roomId: string, user_id: string) {
     let reconnectAttempts = 0;
 
     const connectWebSocket = () => {
-      // ✅ CLOSE previous WebSocket if open
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.close();
       }
@@ -131,7 +135,6 @@ export function useFetchMessages(roomId: string, user_id: string) {
 
     return () => {
       if (wsRef.current) {
-        // 👇 Mark this as an intentional close (code 1000)
         wsRef.current.close(1000, 'Component unmounted or room changed');
       }
       clearTimeout(reconnectTimeout);
@@ -140,7 +143,7 @@ export function useFetchMessages(roomId: string, user_id: string) {
 
   useEffect(() => {
     if (page > 1) {
-      fetchMessages(page, true); // loading older messages
+      fetchMessages(page, true);
     }
   }, [page, fetchMessages]);
 

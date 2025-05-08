@@ -3,11 +3,10 @@
 import { Button } from '@/components/atoms/button';
 import { Input } from '@/components/atoms/input';
 import { Send } from 'lucide-react';
-import { Dispatch, SetStateAction } from 'react';
 
 interface MessageInputProps {
   msg: string;
-  setMsg: Dispatch<SetStateAction<string>>;
+  setMsg: (text: string) => void;
   className?: string;
   handleMessageSent: () => void;
   onSend?: (message: string) => void;

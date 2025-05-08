@@ -4,5 +4,6 @@ export interface SelectedUser {
     id: string;
     name: string;
     image: string;
+    email: string;
   };
 }

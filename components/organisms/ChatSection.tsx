@@ -1,50 +1,96 @@
+import { Button } from '@/components/atoms/button';
 import { ScrollArea } from '@/components/atoms/scroll-area';
 import ChatHeader from '@/components/molecules/ChatHeader';
-import Message from '@/components/molecules/Message';
 import MessageInput from '@/components/molecules/MessageInput';
-import { SelectedUser } from '@/types/SelectUserTypes';
+import { useFetchMessages } from '@/hooks/fetch/useFetchMessages';
+import { authClient } from '@/lib/auth-client';
+import { useChatListStore } from '@/store/useChatListStore';
+import { useChatStore } from '@/store/useChatStore';
 import { LoaderCircle } from 'lucide-react';
-import type { Dispatch, FC, SetStateAction } from 'react';
-import { Button } from '../atoms/button';
+import { useCallback, useMemo, type FC } from 'react';
+import Message from '../molecules/Message';
 
 interface ChatSectionProps {
-  isLoading: boolean;
-  formattedMessages: {
-    id: string;
-    sender: string;
-    avatar: string;
-    time: string;
-    content: string;
-    isSelf?: boolean;
-  }[];
-  chatInput: string;
   openProfile: boolean;
   loadingOlderMessages: boolean;
   hasNextPage: boolean;
-  handleMessageSent: () => void;
   handleOpenProfile: () => void;
   loadMore: () => void;
-  setChatInput: Dispatch<SetStateAction<string>>;
-  selectedRoom?: SelectedUser;
+
   withHeader?: boolean;
 }
 
 const ChatSection: FC<ChatSectionProps> = ({
-  isLoading,
-  formattedMessages,
-  chatInput,
-  setChatInput,
-  handleMessageSent,
-  selectedRoom,
   handleOpenProfile,
   hasNextPage,
   loadMore,
   loadingOlderMessages,
   withHeader = true,
 }) => {
+  const { useSession } = authClient;
+  const { data: session } = useSession();
+
+  const { selectedRoom, messageKeyword, setMessageKeyword } = useChatStore();
+  const { prependOrUpdateChat } = useChatListStore();
+
+  const { messages, receiver, loading } = useFetchMessages(
+    selectedRoom.roomId,
+    selectedRoom.user.id
+  );
+
+  const handleSubmitMessage = useCallback(() => {
+    // sendMessage(messageKeyword, session?.user.id || '');
+    setMessageKeyword('');
+
+    if (selectedRoom && session?.user.id) {
+      prependOrUpdateChat({
+        id: selectedRoom.roomId,
+        type: 'private',
+        user: selectedRoom.user,
+        unreadCount: 0,
+        latestMessage: {
+          id: 'temp-id-' + Date.now(),
+          senderId: session.user.id,
+          content: messageKeyword,
+          createdAt: new Date().toISOString(),
+          privateChatId: selectedRoom.roomId,
+          groupChatId: null,
+          userId: session.user.id,
+        },
+      });
+    }
+  }, [
+    messageKeyword,
+    prependOrUpdateChat,
+    selectedRoom,
+    session?.user.id,
+    setMessageKeyword,
+  ]);
+
+  const formattedMessages = useMemo(() => {
+    const findReceiver = receiver.find(
+      (el) => el.user.id !== session?.user.id
+    )?.user;
+
+    return messages
+      .map((item) => ({
+        id: item.id,
+        sender:
+          item.senderId === session?.user.id ? 'You' : findReceiver?.name || '',
+        avatar:
+          item.senderId === session?.user.id
+            ? session.user.image || ''
+            : findReceiver?.image || '',
+        time: item.createdAt,
+        content: item.content,
+        isSelf: item.senderId === session?.user.id,
+      }))
+      .reverse();
+  }, [messages, receiver, session]);
+
   return (
     <div className="relative size-full border-r border-b">
-      {!selectedRoom ? (
+      {selectedRoom.user.name === '' ? (
         <div className="size-full flex items-center justify-center text-muted-foreground">
           Select chat to start
         </div>
@@ -59,7 +105,7 @@ const ChatSection: FC<ChatSectionProps> = ({
             />
           )}
           <div className={`flex-1 `}>
-            {isLoading ? (
+            {loading ? (
               <div className="size-full flex items-center justify-center">
                 <LoaderCircle className="animate-spin" />
               </div>
@@ -86,9 +132,9 @@ const ChatSection: FC<ChatSectionProps> = ({
             )}
           </div>
           <MessageInput
-            msg={chatInput}
-            setMsg={setChatInput}
-            handleMessageSent={handleMessageSent}
+            msg={messageKeyword}
+            setMsg={setMessageKeyword}
+            handleMessageSent={handleSubmitMessage}
           />
         </div>
       )}

@@ -5,7 +5,6 @@ import {
   CreateChatPayload,
   useCreatePrivateChat,
 } from '@/hooks/fetch/useCreatePrivateChat';
-import { useFetchChatList } from '@/hooks/fetch/useFetchChatList';
 import { useFetchMessages } from '@/hooks/fetch/useFetchMessages';
 import { useSearchUsers } from '@/hooks/fetch/useSearchUser';
 import { authClient } from '@/lib/auth-client';
@@ -37,16 +36,9 @@ export const useChat = () => {
   const [debouncedSidebar] = useDebouncedValue(sidebarKeyword, 200);
 
   const {
-    chatList,
-    loading: isChatListLoading,
-    prependOrUpdateChat,
-  } = useFetchChatList(session?.user.id || '');
-
-  const {
     messages: messagesList,
     receiver,
     loading: isMessageListLoading,
-    sendMessage,
     loadMore,
     hasMore,
     loadingOlderMessages,
@@ -64,6 +56,7 @@ export const useChat = () => {
         id: data.user.id,
         image: data.user.image || '',
         name: data.user.name,
+        email: data.user.email,
       },
     });
   };
@@ -97,36 +90,6 @@ export const useChat = () => {
     setSidebarKeyword(e);
   }, []);
 
-  const handleSubmitMessage = useCallback(() => {
-    const messageContent = chatInput;
-    sendMessage(messageContent);
-    setChatInput('');
-
-    if (selectedRoom && session?.user.id) {
-      prependOrUpdateChat({
-        id: selectedRoom.roomId,
-        type: 'private',
-        user: selectedRoom.user,
-        unreadCount: 0,
-        latestMessage: {
-          id: 'temp-id-' + Date.now(),
-          senderId: session.user.id,
-          content: messageContent,
-          createdAt: new Date().toISOString(),
-          privateChatId: selectedRoom.roomId,
-          groupChatId: null,
-          userId: session.user.id,
-        },
-      });
-    }
-  }, [
-    chatInput,
-    sendMessage,
-    selectedRoom,
-    prependOrUpdateChat,
-    session?.user.id,
-  ]);
-
   const handleCreatePrivateChat = useCallback(
     async (payload: CreateChatPayload, receiverData: User) => {
       try {
@@ -138,6 +101,7 @@ export const useChat = () => {
             id: receiverData.id,
             image: receiverData.image || '',
             name: receiverData.name,
+            email: receiverData.email,
           },
         });
 
@@ -171,8 +135,6 @@ export const useChat = () => {
 
   return {
     session,
-    chatList,
-    isChatListLoading,
     selectedRoom,
     setOpenDialog,
     openDialog,
@@ -186,7 +148,6 @@ export const useChat = () => {
     isMessageListLoading,
     chatInput,
     setChatInput,
-    handleSubmitMessage,
     handleOpenProfile,
     handleOpenChatMob,
     openProfile,

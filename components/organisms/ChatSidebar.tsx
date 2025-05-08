@@ -13,11 +13,12 @@ import Empty from '../atoms/empty';
 import Loader from '../atoms/loader';
 import SidebarHeader from '../molecules/SidebarHeader';
 import { useMediaQuery } from '@mantine/hooks';
+import { useChatStore } from '@/store/useChatStore';
 
 interface ChatSidebarProps {
   isLoading: boolean;
   chatList: ChatListType[];
-  onChatSelect: (data: ChatListType) => void;
+
   setOpenDialog: Dispatch<SetStateAction<boolean>>;
   sidebarkeyword: string;
   setSidebarKeyword: Dispatch<SetStateAction<string>>;
@@ -33,7 +34,7 @@ interface ChatSidebarProps {
 const ChatSidebar: FC<ChatSidebarProps> = ({
   isLoading,
   chatList = [],
-  onChatSelect,
+
   userName,
   selectedChatId,
   setOpenDialog,
@@ -45,6 +46,8 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
   setOpenChatSlider,
 }) => {
   const matches = useMediaQuery('(min-width: 768px)');
+
+  const { setSelectedRoom } = useChatStore();
 
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
@@ -132,7 +135,10 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
             {chatList.map((item, idx) => (
               <div
                 onClick={() => {
-                  onChatSelect(item);
+                  setSelectedRoom({
+                    roomId: item.id,
+                    user: item.user,
+                  });
                   handleOpenChatMob();
 
                   if (!matches) {

@@ -15,7 +15,8 @@ export interface ChatListType {
 export interface User {
   id: string;
   name: string;
-  image: string | null;
+  image: string;
+  email: string;
 }
 
 export interface LatestMessage {
