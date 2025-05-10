@@ -1,34 +1,119 @@
 import { authClient } from '@/lib/auth-client';
+import { getMessages } from '@/services/getMessages';
 import { useChatListStore } from '@/store/useChatListStore';
-import { useMessageStore } from '@/store/useMessageStore';
-import { ChatListType } from '@/types/ChatListTypes';
-import { SelectedUser } from '@/types/SelectUserTypes';
-import { useCallback, useMemo, useState } from 'react';
+import { useChatStore } from '@/store/useChatStore';
+import {
+  ChatMessageTypesResponse,
+  MessageTypes,
+} from '@/types/ChatMessageTypes';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo } from 'react';
 
 export const useChatRoom = () => {
   const { useSession } = authClient;
   const { data: session } = useSession();
 
+  const { selectedRoom, messageKeyword, setMessageKeyword } = useChatStore();
   const { prependOrUpdateChat } = useChatListStore();
-  const {
-    messages,
-    receiver,
-    loading,
-    sendMessage,
-    loadMore,
-    hasMore,
-    loadingOlderMessages,
-  } = useMessageStore();
 
-  const [selectedRoom, setSelectedRoom] = useState<SelectedUser>();
-  const [chatInput, setChatInput] = useState('');
+  const queryClient = useQueryClient();
+
+  const { data, isLoading, isError } = useQuery<ChatMessageTypesResponse>({
+    queryKey: [`message-${selectedRoom.roomId}`],
+    queryFn: () => getMessages(selectedRoom.roomId, 1),
+    enabled: selectedRoom.roomId !== '',
+    initialData: {
+      data: {
+        messages: [],
+        receiver: [],
+        pagination: {
+          currentPage: 0,
+          totalMessages: 0,
+          totalPages: 0,
+        },
+      },
+      message: '',
+      success: false,
+    },
+  });
+
+  useEffect(() => {
+    if (selectedRoom.roomId === '') {
+      return;
+    }
+
+    const socket = new WebSocket(
+      `${process.env.NEXT_PUBLIC_BASE_WEBSOCKET_URL}/v1/personal-chat?receiver=${selectedRoom.user.id}`
+    );
+
+    socket.onopen = () => {
+      console.log(`Connected to room ${selectedRoom.user.name}`);
+      // reconnectAttempts = 0;
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        // const newMessage: MessageTypes = JSON.parse(event.data);
+        // setMessages((prev) => [newMessage, ...prev]);
+      } catch (err) {
+        console.log('Failed to parse message:', err);
+      }
+    };
+
+    socket.onerror = (error) => {
+      console.log('WebSocket Error:', error);
+    };
+
+    socket.onclose = (event) => {
+      console.log('WebSocket Disconnected', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+      });
+
+      // if (event.code !== 1000) {
+      //   const timeout = Math.min(10000, 1000 * 2 ** reconnectAttempts);
+      //   reconnectTimeout = setTimeout(() => {
+      //     reconnectAttempts++;
+      //     connectWebSocket();
+      //   }, timeout);
+      // }
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [selectedRoom]);
+
+  // const handleSubmitMessage = useCallback(() => {
+  //   sendMessage(messageKeyword);
+  //   setMessageKeyword('');
+
+  //   if (selectedRoom && session?.user.id) {
+  //     prependOrUpdateChat({
+  //       id: selectedRoom.roomId,
+  //       type: 'private',
+  //       user: selectedRoom.user,
+  //       unreadCount: 0,
+  //       latestMessage: {
+  //         id: 'temp-id-' + Date.now(),
+  //         senderId: session.user.id,
+  //         content: messageKeyword,
+  //         createdAt: new Date().toISOString(),
+  //         privateChatId: selectedRoom.roomId,
+  //         groupChatId: null,
+  //         userId: session.user.id,
+  //       },
+  //     });
+  //   }
+  // }, []);
 
   const formattedMessages = useMemo(() => {
-    const findReceiver = receiver.find(
+    const findReceiver = data.data.receiver.find(
       (el) => el.user.id !== session?.user.id
     )?.user;
 
-    return messages
+    return data.data.messages
       .map((item) => ({
         id: item.id,
         sender:
@@ -42,74 +127,14 @@ export const useChatRoom = () => {
         isSelf: item.senderId === session?.user.id,
       }))
       .reverse();
-  }, [messages, receiver, session?.user.id, session?.user.image]);
-
-  const handleSelectPC = useCallback((data: ChatListType) => {
-    setSelectedRoom({
-      roomId: data.id,
-      user: {
-        id: data.user.id,
-        image: data.user.image || '',
-        name: data.user.name,
-        email: data.user.email,
-      },
-    });
-  }, []);
-
-  const handleSubmitMessage = useCallback(() => {
-    sendMessage(chatInput, session?.user.id || '');
-    setChatInput('');
-
-    if (selectedRoom && session?.user.id) {
-      prependOrUpdateChat({
-        id: selectedRoom.roomId,
-        type: 'private',
-        user: selectedRoom.user,
-        unreadCount: 0,
-        latestMessage: {
-          id: 'temp-id-' + Date.now(),
-          senderId: session.user.id,
-          content: chatInput,
-          createdAt: new Date().toISOString(),
-          privateChatId: selectedRoom.roomId,
-          groupChatId: null,
-          userId: session.user.id,
-        },
-      });
-    }
-  }, [
-    chatInput,
-    sendMessage,
-    selectedRoom,
-    prependOrUpdateChat,
-    session?.user.id,
-  ]);
+  }, [data, session]);
 
   return useMemo(() => {
     return {
-      chatInput,
-      setChatInput,
-      selectedRoom,
-      handleSelectPC,
+      data,
+      isLoading,
+      isError,
       formattedMessages,
-      loading,
-      sendMessage,
-      loadMore,
-      hasMore,
-      loadingOlderMessages,
-      handleSubmitMessage,
     };
-  }, [
-    chatInput,
-    setChatInput,
-    formattedMessages,
-    handleSelectPC,
-    selectedRoom,
-    loading,
-    sendMessage,
-    loadMore,
-    hasMore,
-    loadingOlderMessages,
-    handleSubmitMessage,
-  ]);
+  }, [data, formattedMessages, isError, isLoading]);
 };

@@ -1,92 +1,46 @@
 import { Button } from '@/components/atoms/button';
 import { ScrollArea } from '@/components/atoms/scroll-area';
 import ChatHeader from '@/components/molecules/ChatHeader';
+import Message from '@/components/molecules/Message';
 import MessageInput from '@/components/molecules/MessageInput';
-import { useFetchMessages } from '@/hooks/fetch/useFetchMessages';
+import { useChatRoom } from '@/hooks/pages/Chat/useChatRoom';
 import { authClient } from '@/lib/auth-client';
-import { useChatListStore } from '@/store/useChatListStore';
+import { getMessages } from '@/services/getMessages';
 import { useChatStore } from '@/store/useChatStore';
+import { useQuery } from '@tanstack/react-query';
 import { LoaderCircle } from 'lucide-react';
-import { useCallback, useMemo, type FC } from 'react';
-import Message from '../molecules/Message';
+import { useEffect, useMemo, type FC } from 'react';
 
 interface ChatSectionProps {
   openProfile: boolean;
-  loadingOlderMessages: boolean;
-  hasNextPage: boolean;
   handleOpenProfile: () => void;
-  loadMore: () => void;
-
   withHeader?: boolean;
 }
 
 const ChatSection: FC<ChatSectionProps> = ({
   handleOpenProfile,
-  hasNextPage,
-  loadMore,
-  loadingOlderMessages,
   withHeader = true,
 }) => {
   const { useSession } = authClient;
   const { data: session } = useSession();
 
-  const { selectedRoom, messageKeyword, setMessageKeyword } = useChatStore();
-  const { prependOrUpdateChat } = useChatListStore();
-
-  const { messages, receiver, loading } = useFetchMessages(
-    selectedRoom.roomId,
-    selectedRoom.user.id
-  );
-
-  const handleSubmitMessage = useCallback(() => {
-    // sendMessage(messageKeyword, session?.user.id || '');
-    setMessageKeyword('');
-
-    if (selectedRoom && session?.user.id) {
-      prependOrUpdateChat({
-        id: selectedRoom.roomId,
-        type: 'private',
-        user: selectedRoom.user,
-        unreadCount: 0,
-        latestMessage: {
-          id: 'temp-id-' + Date.now(),
-          senderId: session.user.id,
-          content: messageKeyword,
-          createdAt: new Date().toISOString(),
-          privateChatId: selectedRoom.roomId,
-          groupChatId: null,
-          userId: session.user.id,
-        },
-      });
-    }
-  }, [
-    messageKeyword,
-    prependOrUpdateChat,
+  const {
     selectedRoom,
-    session?.user.id,
+    messageKeyword,
     setMessageKeyword,
-  ]);
+    // data,
+    // fetchMessages,
+    // isLoading,
+  } = useChatStore();
 
-  const formattedMessages = useMemo(() => {
-    const findReceiver = receiver.find(
-      (el) => el.user.id !== session?.user.id
-    )?.user;
-
-    return messages
-      .map((item) => ({
-        id: item.id,
-        sender:
-          item.senderId === session?.user.id ? 'You' : findReceiver?.name || '',
-        avatar:
-          item.senderId === session?.user.id
-            ? session.user.image || ''
-            : findReceiver?.image || '',
-        time: item.createdAt,
-        content: item.content,
-        isSelf: item.senderId === session?.user.id,
-      }))
-      .reverse();
-  }, [messages, receiver, session]);
+  const {
+    // loading,
+    // formattedMessages,
+    data,
+    isError,
+    isLoading,
+    formattedMessages,
+  } = useChatRoom();
 
   return (
     <div className="relative size-full border-r border-b">
@@ -105,28 +59,29 @@ const ChatSection: FC<ChatSectionProps> = ({
             />
           )}
           <div className={`flex-1 `}>
-            {loading ? (
+            {isLoading ? (
               <div className="size-full flex items-center justify-center">
                 <LoaderCircle className="animate-spin" />
               </div>
             ) : (
               <ScrollArea className="size-full" type="auto">
                 <div className="absolute inset-0 p-2">
-                  {hasNextPage && (
+                  {data.data.pagination.currentPage <
+                    data.data.pagination.totalPages && (
                     <div className="w-full flex items-center justify-center">
                       <Button
-                        onClick={loadMore}
+                        // onClick={loadMore}
                         className="rounded-full"
                         variant="outline"
-                        disabled={loadingOlderMessages}
+                        // disabled={loadingOlderMessages}
                       >
-                        {loadingOlderMessages
+                        {/* {loadingOlderMessages
                           ? 'Loading...'
-                          : 'Load more messages'}
+                          : 'Load more messages'} */}
                       </Button>
                     </div>
                   )}
-                  <Message messages={formattedMessages} />
+                  {/* <Message messages={formattedMessages} /> */}
                 </div>
               </ScrollArea>
             )}
@@ -134,7 +89,7 @@ const ChatSection: FC<ChatSectionProps> = ({
           <MessageInput
             msg={messageKeyword}
             setMsg={setMessageKeyword}
-            handleMessageSent={handleSubmitMessage}
+            // handleMessageSent={handleSubmitMessage}
           />
         </div>
       )}

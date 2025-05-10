@@ -55,13 +55,15 @@ const Message = ({ messages, className }: MessagesProps) => {
   const groupedMessages = groupMessages(messages);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  console.log(groupedMessages);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   return (
     <div className={className}>
-      {groupedMessages.map((group, groupIndex) => (
+      {/* {groupedMessages.map((group, groupIndex) => (
         <div key={groupIndex} className="mb-4">
           <div
             className={`flex gap-3 ${
@@ -105,7 +107,7 @@ const Message = ({ messages, className }: MessagesProps) => {
             </div>
           </div>
         </div>
-      ))}
+      ))} */}
       <div ref={messagesEndRef} />{' '}
     </div>
   );

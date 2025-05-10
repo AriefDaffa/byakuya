@@ -1,66 +1,54 @@
 'use client';
-import { Button } from '@/components/atoms/button';
 
 import { Input } from '@/components/atoms/input';
 import { ScrollArea } from '@/components/atoms/scroll-area';
 import { ChatList } from '@/components/molecules/ChatList';
-import { ChatListType } from '@/types/ChatListTypes';
-import { SidebarMergedData } from '@/types/SidebarSearchTypes';
+import { useChatList } from '@/hooks/pages/Chat/useChatList';
+import { useSidebarSearch } from '@/hooks/pages/Chat/useSidebarSearch';
+import { authClient } from '@/lib/auth-client';
+import { useChatStore } from '@/store/useChatStore';
 import { formatChatTimestamp } from '@/utils/formatChatTimestamp';
-import { MessageSquarePlus } from 'lucide-react';
+import { useMediaQuery } from '@mantine/hooks';
 import { Dispatch, FC, SetStateAction } from 'react';
 import Empty from '../atoms/empty';
 import Loader from '../atoms/loader';
 import SidebarHeader from '../molecules/SidebarHeader';
-import { useMediaQuery } from '@mantine/hooks';
-import { useChatStore } from '@/store/useChatStore';
 
 interface ChatSidebarProps {
-  isLoading: boolean;
-  chatList: ChatListType[];
-
-  setOpenDialog: Dispatch<SetStateAction<boolean>>;
-  sidebarkeyword: string;
-  setSidebarKeyword: Dispatch<SetStateAction<string>>;
-  isSearching: boolean;
-  userName?: string;
-  avatar?: string;
-  selectedChatId?: string;
   handleOpenChatMob: () => void;
-  searchResult: SidebarMergedData;
   setOpenChatSlider: Dispatch<SetStateAction<boolean>>;
 }
 
 const ChatSidebar: FC<ChatSidebarProps> = ({
-  isLoading,
-  chatList = [],
-
-  userName,
-  selectedChatId,
-  setOpenDialog,
   handleOpenChatMob,
-  sidebarkeyword,
-  setSidebarKeyword,
-  isSearching,
-  searchResult,
   setOpenChatSlider,
 }) => {
+  const { useSession } = authClient;
+  const { data: session } = useSession();
+
   const matches = useMediaQuery('(min-width: 768px)');
 
-  const { setSelectedRoom } = useChatStore();
+  const { chatList, loading } = useChatList();
+  const {
+    data: searchResult,
+    loading: isSearching,
+    setSidebarKeyword,
+    sidebarKeyword,
+  } = useSidebarSearch();
+  const { setSelectedRoom, selectedRoom } = useChatStore();
 
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
       <div className="border-b px-3 pt-6 pb-4 space-y-4">
-        <SidebarHeader userName={userName} />
+        <SidebarHeader userName={session?.user.name} />
         <Input
-          value={sidebarkeyword}
+          value={sidebarKeyword}
           onChange={(e) => setSidebarKeyword(e.target.value)}
           placeholder="Search user or messages here..."
         />
       </div>
 
-      {sidebarkeyword !== '' ? (
+      {sidebarKeyword !== '' ? (
         isSearching ? (
           <Loader />
         ) : (
@@ -122,7 +110,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
             </div>
           </ScrollArea>
         )
-      ) : isLoading ? (
+      ) : loading ? (
         <Loader />
       ) : chatList.length === 0 ? (
         <Empty
@@ -154,7 +142,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
                   message={item.latestMessage?.content}
                   unread={item.unreadCount}
                   fallback={item.user.name.charAt(0)}
-                  active={selectedChatId === item.user.id}
+                  active={selectedRoom.user.id === item.user.id}
                   time={
                     item.latestMessage
                       ? formatChatTimestamp(item.latestMessage?.createdAt)
@@ -166,12 +154,6 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
           </div>
         </ScrollArea>
       )}
-      <Button
-        onClick={() => setOpenDialog(true)}
-        className="absolute right-3 bottom-3 rounded-full h-12 w-12 "
-      >
-        <MessageSquarePlus className="h-10 w-10" />
-      </Button>
     </div>
   );
 };
