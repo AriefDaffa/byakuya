@@ -1,7 +1,5 @@
 'use client';
 
-import { useChat } from '@/hooks/pages/useChat';
-
 import ChatSection from '@/components/organisms/ChatSection';
 import ChatSidebar from '@/components/organisms/ChatSidebar';
 import ChatTemplates from '@/components/templates/ChatTemplates';
@@ -10,32 +8,20 @@ import { Fragment } from 'react';
 import ChatHeader from '@/components/molecules/ChatHeader';
 import SheetLayer from '@/components/molecules/SheetLayer';
 import ReceiverSheet from '@/components/organisms/ReceiverSheet';
-import { useChatSlider } from '@/hooks/pages/Chat/useChatSlider';
 import { useChatStore } from '@/store/useChatStore';
 
 export default function ChatPage() {
-  const { handleOpenChatMob, handleOpenProfile, openProfile, setOpenProfile } =
-    useChat();
-
-  const { openChatSlider, setOpenChatSlider } = useChatSlider();
-  const { selectedRoom } = useChatStore();
+  const {
+    selectedRoom,
+    openChatSlider,
+    setOpenChatSlider,
+    openProfile,
+    setOpenProfile,
+  } = useChatStore();
 
   return (
     <Fragment>
-      <ChatTemplates
-        sidebar={
-          <ChatSidebar
-            handleOpenChatMob={handleOpenChatMob}
-            setOpenChatSlider={setOpenChatSlider}
-          />
-        }
-        chatSection={
-          <ChatSection
-            openProfile={openProfile}
-            handleOpenProfile={handleOpenProfile}
-          />
-        }
-      />
+      <ChatTemplates sidebar={<ChatSidebar />} chatSection={<ChatSection />} />
       <SheetLayer
         open={openChatSlider}
         setOpen={setOpenChatSlider}
@@ -43,16 +29,12 @@ export default function ChatPage() {
           <ChatHeader
             avatar={selectedRoom?.user.image || ''}
             name={selectedRoom?.user.name || ''}
-            handleOpenProfile={handleOpenProfile}
+            handleOpenProfile={setOpenProfile}
             status=""
           />
         }
       >
-        <ChatSection
-          withHeader={false}
-          openProfile={openProfile}
-          handleOpenProfile={handleOpenProfile}
-        />
+        <ChatSection withHeader={false} />
       </SheetLayer>
       <ReceiverSheet open={openProfile} setOpen={setOpenProfile} />
     </Fragment>

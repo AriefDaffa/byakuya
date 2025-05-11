@@ -3,26 +3,21 @@
 import { Input } from '@/components/atoms/input';
 import { ScrollArea } from '@/components/atoms/scroll-area';
 import { ChatList } from '@/components/molecules/ChatList';
-import { useChatList } from '@/hooks/pages/Chat/useChatList';
+import { useChatList } from '@/hooks/useChatList';
 import { useSidebarSearch } from '@/hooks/pages/Chat/useSidebarSearch';
 import { authClient } from '@/lib/auth-client';
 import { useChatStore } from '@/store/useChatStore';
 import { formatChatTimestamp } from '@/utils/formatChatTimestamp';
 import { useMediaQuery } from '@mantine/hooks';
-import { Dispatch, FC, SetStateAction } from 'react';
+import { FC } from 'react';
 import Empty from '../atoms/empty';
 import Loader from '../atoms/loader';
 import SidebarHeader from '../molecules/SidebarHeader';
 
-interface ChatSidebarProps {
-  handleOpenChatMob: () => void;
-  setOpenChatSlider: Dispatch<SetStateAction<boolean>>;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface ChatSidebarProps {}
 
-const ChatSidebar: FC<ChatSidebarProps> = ({
-  handleOpenChatMob,
-  setOpenChatSlider,
-}) => {
+const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
   const { useSession } = authClient;
   const { data: session } = useSession();
 
@@ -35,7 +30,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
     setSidebarKeyword,
     sidebarKeyword,
   } = useSidebarSearch();
-  const { setSelectedRoom, selectedRoom } = useChatStore();
+  const { setSelectedRoom, selectedRoom, setOpenChatSlider } = useChatStore();
 
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
@@ -62,13 +57,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
                     Messages
                   </div>
                   {searchResult?.messages.map((item, idx) => (
-                    <div
-                      onClick={() => {
-                        handleOpenChatMob();
-                      }}
-                      key={idx}
-                      className="border-b h-20"
-                    >
+                    <div onClick={() => {}} key={idx} className="border-b h-20">
                       <ChatList
                         avatar={item.userImage || ''}
                         name={item.userName}
@@ -90,13 +79,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
                     Users
                   </div>
                   {searchResult?.users.map((item, idx) => (
-                    <div
-                      onClick={() => {
-                        handleOpenChatMob();
-                      }}
-                      key={idx}
-                      className="border-b h-20"
-                    >
+                    <div onClick={() => {}} key={idx} className="border-b h-20">
                       <ChatList
                         avatar={item.image || ''}
                         name={item.name}
@@ -127,10 +110,9 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
                     roomId: item.id,
                     user: item.user,
                   });
-                  handleOpenChatMob();
 
                   if (!matches) {
-                    setOpenChatSlider(true);
+                    setOpenChatSlider();
                   }
                 }}
                 key={idx}

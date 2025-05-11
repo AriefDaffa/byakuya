@@ -1,46 +1,33 @@
 import { Button } from '@/components/atoms/button';
 import { ScrollArea } from '@/components/atoms/scroll-area';
 import ChatHeader from '@/components/molecules/ChatHeader';
-import Message from '@/components/molecules/Message';
 import MessageInput from '@/components/molecules/MessageInput';
-import { useChatRoom } from '@/hooks/pages/Chat/useChatRoom';
+import Messages from '@/components/molecules/Messages';
+import { useChatRoom } from '@/hooks/useChatRoom';
 import { authClient } from '@/lib/auth-client';
-import { getMessages } from '@/services/getMessages';
 import { useChatStore } from '@/store/useChatStore';
-import { useQuery } from '@tanstack/react-query';
 import { LoaderCircle } from 'lucide-react';
-import { useEffect, useMemo, type FC } from 'react';
+import { useEffect, useRef, type FC } from 'react';
 
 interface ChatSectionProps {
-  openProfile: boolean;
-  handleOpenProfile: () => void;
   withHeader?: boolean;
 }
 
-const ChatSection: FC<ChatSectionProps> = ({
-  handleOpenProfile,
-  withHeader = true,
-}) => {
+const ChatSection: FC<ChatSectionProps> = ({ withHeader = true }) => {
   const { useSession } = authClient;
   const { data: session } = useSession();
 
-  const {
-    selectedRoom,
-    messageKeyword,
-    setMessageKeyword,
-    // data,
-    // fetchMessages,
-    // isLoading,
-  } = useChatStore();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const {
-    // loading,
-    // formattedMessages,
-    data,
-    isError,
-    isLoading,
-    formattedMessages,
-  } = useChatRoom();
+  const { selectedRoom, messageKeyword, setMessageKeyword, setOpenProfile } =
+    useChatStore();
+
+  const { data, messages, isLoading, formatMessage, sendMessage } =
+    useChatRoom();
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   return (
     <div className="relative size-full border-r border-b">
@@ -54,7 +41,7 @@ const ChatSection: FC<ChatSectionProps> = ({
             <ChatHeader
               avatar={selectedRoom?.user.image || ''}
               name={selectedRoom?.user.name || ''}
-              handleOpenProfile={handleOpenProfile}
+              handleOpenProfile={setOpenProfile}
               status=""
             />
           )}
@@ -66,8 +53,7 @@ const ChatSection: FC<ChatSectionProps> = ({
             ) : (
               <ScrollArea className="size-full" type="auto">
                 <div className="absolute inset-0 p-2">
-                  {data.data.pagination.currentPage <
-                    data.data.pagination.totalPages && (
+                  {data.data.currentPage < data.data.totalPages && (
                     <div className="w-full flex items-center justify-center">
                       <Button
                         // onClick={loadMore}
@@ -81,7 +67,14 @@ const ChatSection: FC<ChatSectionProps> = ({
                       </Button>
                     </div>
                   )}
-                  {/* <Message messages={formattedMessages} /> */}
+                  {formatMessage(messages).map((item, idx) => (
+                    <Messages
+                      key={idx}
+                      currentUserId={session?.user.id || ''}
+                      {...item}
+                    />
+                  ))}
+                  <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
             )}
@@ -89,7 +82,7 @@ const ChatSection: FC<ChatSectionProps> = ({
           <MessageInput
             msg={messageKeyword}
             setMsg={setMessageKeyword}
-            // handleMessageSent={handleSubmitMessage}
+            handleMessageSent={sendMessage}
           />
         </div>
       )}
