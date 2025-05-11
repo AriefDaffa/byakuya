@@ -2,8 +2,10 @@
 // import { generateId } from '@/hooks/fetch/useFetchMessages';
 import { authClient } from '@/lib/auth-client';
 import { getMessages } from '@/services/getMessages';
+import { useChatListStore } from '@/store/useChatListStore';
 // import { useChatListStore } from '@/store/useChatListStore';
 import { useChatStore } from '@/store/useChatStore';
+import { ChatListData } from '@/types/ChatListTypes';
 import {
   FormattedMsg,
   MessagesItem,
@@ -33,15 +35,17 @@ export const useChatRoom = () => {
   const socketRef = useRef<WebSocket | null>(null);
 
   const { selectedRoom, messageKeyword, setMessageKeyword } = useChatStore();
-  // const { prependOrUpdateChat } = useChatListStore();
+  const { mutatedData: chatListData, setMutatedData: setChatListData } =
+    useChatListStore();
 
   const [mutatedData, setMutatedData] = useState<MessagesItem[]>([]);
+  console.log(selectedRoom);
 
   const { data, isLoading, isError, isSuccess } = useQuery<PrivateChatResponse>(
     {
-      queryKey: [`message-${selectedRoom.roomId}`],
+      queryKey: [`message-${selectedRoom.user.id}`],
       queryFn: () => getMessages(selectedRoom.user.id, 1),
-      enabled: selectedRoom.roomId !== '',
+      enabled: selectedRoom.user.id !== '',
       initialData,
       refetchOnMount: false,
       refetchOnReconnect: false,
@@ -114,14 +118,55 @@ export const useChatRoom = () => {
         },
       };
 
+      const newListData: ChatListData[] = [
+        {
+          id: selectedRoom.user.id || '',
+          email: selectedRoom.user.email || '',
+          image: selectedRoom.user.image || '',
+          name: selectedRoom.user.name || '',
+          latestMessage: {
+            id: generateId(),
+            content: messageKeyword,
+            createdAt: new Date().toISOString(),
+          },
+        },
+      ];
+
+      const existingChat = chatListData.some(
+        (el) => el.id === selectedRoom.user.id
+      );
+
       setMutatedData((prev) => [newMessage, ...prev]);
+      setChatListData(
+        existingChat
+          ? chatListData.map((el) =>
+              el.id === selectedRoom.user.id
+                ? {
+                    ...el,
+                    latestMessage: {
+                      id: generateId(),
+                      content: messageKeyword,
+                      createdAt: new Date().toISOString(),
+                    },
+                  }
+                : el
+            )
+          : [...newListData, ...chatListData]
+      );
       setMessageKeyword('');
 
       socketRef.current.send(JSON.stringify({ message: messageKeyword }));
     } else {
       console.warn('WebSocket is not connected.');
     }
-  }, [messageKeyword, selectedRoom, session, setMessageKeyword]);
+  }, [
+    chatListData,
+    messageKeyword,
+    selectedRoom,
+    session,
+    setChatListData,
+    setMessageKeyword,
+  ]);
 
   useEffect(() => {
     if (isSuccess) {
@@ -134,7 +179,7 @@ export const useChatRoom = () => {
       socketRef.current.close();
     }
 
-    if (selectedRoom.roomId === '') {
+    if (selectedRoom.user.id === '') {
       return;
     }
 

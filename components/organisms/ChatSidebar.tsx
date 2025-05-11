@@ -2,16 +2,15 @@
 
 import { Input } from '@/components/atoms/input';
 import { ScrollArea } from '@/components/atoms/scroll-area';
-import { ChatList } from '@/components/molecules/ChatList';
+import ChatList from '@/components/molecules/ChatList';
+// import { useChatList } from '@/hooks/useChatList';
+// import { useSidebarSearch } from '@/hooks/pages/Chat/useSidebarSearch';
 import { useChatList } from '@/hooks/useChatList';
-import { useSidebarSearch } from '@/hooks/pages/Chat/useSidebarSearch';
 import { authClient } from '@/lib/auth-client';
+import { useChatListStore } from '@/store/useChatListStore';
 import { useChatStore } from '@/store/useChatStore';
-import { formatChatTimestamp } from '@/utils/formatChatTimestamp';
 import { useMediaQuery } from '@mantine/hooks';
 import { FC } from 'react';
-import Empty from '../atoms/empty';
-import Loader from '../atoms/loader';
 import SidebarHeader from '../molecules/SidebarHeader';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -23,13 +22,9 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
 
   const matches = useMediaQuery('(min-width: 768px)');
 
-  const { chatList, loading } = useChatList();
-  const {
-    data: searchResult,
-    loading: isSearching,
-    setSidebarKeyword,
-    sidebarKeyword,
-  } = useSidebarSearch();
+  const { data } = useChatList();
+
+  const { searchKeyword, setSearchKeyword } = useChatListStore();
   const { setSelectedRoom, selectedRoom, setOpenChatSlider } = useChatStore();
 
   return (
@@ -37,14 +32,35 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
       <div className="border-b px-3 pt-6 pb-4 space-y-4">
         <SidebarHeader userName={session?.user.name} />
         <Input
-          value={sidebarKeyword}
-          onChange={(e) => setSidebarKeyword(e.target.value)}
+          value={searchKeyword}
+          onChange={(e) => setSearchKeyword(e.target.value)}
           placeholder="Search user or messages here..."
         />
       </div>
+      <ScrollArea className="size-full" type="auto">
+        <div className="absolute inset-0">
+          {data.map((item, idx) => (
+            <div
+              onClick={() => {
+                setSelectedRoom({
+                  roomId: '',
+                  user: item,
+                });
 
-      {sidebarKeyword !== '' ? (
-        isSearching ? (
+                if (!matches) {
+                  setOpenChatSlider();
+                }
+              }}
+              key={idx}
+              className="border-b h-20"
+            >
+              <ChatList active={selectedRoom.user.id === item.id} {...item} />
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+      {/* {searchKeyword !== '' ? (
+        isLoading ? (
           <Loader />
         ) : (
           <ScrollArea className="size-full" type="auto">
@@ -135,7 +151,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
             ))}
           </div>
         </ScrollArea>
-      )}
+      )} */}
     </div>
   );
 };
