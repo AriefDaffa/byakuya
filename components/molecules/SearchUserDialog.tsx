@@ -7,8 +7,6 @@ import {
   CommandList,
 } from '@/components/atoms/command';
 import { Input } from '@/components/atoms/input';
-import { CreateChatPayload } from '@/hooks/fetch/useCreatePrivateChat';
-import { User } from '@/types/ChatListTypes';
 import { UserData } from '@/types/UserTypes';
 import { SearchIcon } from 'lucide-react';
 import type { Dispatch, FC, SetStateAction } from 'react';
@@ -19,7 +17,7 @@ interface SearchUserDialogProps {
   isCreatePCLoading: boolean;
   setOpenDialog: Dispatch<SetStateAction<boolean>>;
   handleKeywordChange: (e: string) => void;
-  handleOnUserClick: (payload: CreateChatPayload, receiverData: User) => void;
+  // handleOnUserClick: (payload: CreateChatPayload, receiverData: User) => void;
   usersList?: UserData[];
   senderId?: string;
 }
@@ -30,8 +28,8 @@ const SearchUserDialog: FC<SearchUserDialogProps> = ({
   handleKeywordChange,
   usersList = [],
   isSearching,
-  handleOnUserClick,
-  senderId = '',
+  // handleOnUserClick,
+  // senderId = '',
   isCreatePCLoading,
 }) => {
   return (
@@ -57,15 +55,15 @@ const SearchUserDialog: FC<SearchUserDialogProps> = ({
           <CommandGroup heading="Search result" className="mb-2">
             {usersList.map((item, idx) => (
               <div
-                onClick={() =>
-                  handleOnUserClick(
-                    {
-                      sender_id: senderId,
-                      receiver_id: item.id,
-                    },
-                    item
-                  )
-                }
+                // onClick={() =>
+                //   handleOnUserClick(
+                //     {
+                //       sender_id: senderId,
+                //       receiver_id: item.id,
+                //     },
+                //     item
+                //   )
+                // }
                 className="cursor-pointer"
                 key={idx}
               >
