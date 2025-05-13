@@ -19,10 +19,15 @@ const ChatSection: FC<ChatSectionProps> = ({ withHeader = true }) => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { selectedRoom, messageKeyword, setMessageKeyword, setOpenProfile } =
-    useChatStore();
+  const {
+    selectedRoom,
+    messageKeyword,
+    setMessageKeyword,
+    setOpenProfile,
+    incrementPage,
+  } = useChatStore();
 
-  const { data, messages, isLoading, formatMessage, sendMessage } =
+  const { data, messages, isLoading, formatMessage, sendMessage, isFetching } =
     useChatRoom();
 
   useEffect(() => {
@@ -56,14 +61,12 @@ const ChatSection: FC<ChatSectionProps> = ({ withHeader = true }) => {
                   {data.data.currentPage < data.data.totalPages && (
                     <div className="w-full flex items-center justify-center">
                       <Button
-                        // onClick={loadMore}
+                        onClick={incrementPage}
                         className="rounded-full"
                         variant="outline"
-                        // disabled={loadingOlderMessages}
+                        disabled={isFetching}
                       >
-                        {/* {loadingOlderMessages
-                          ? 'Loading...'
-                          : 'Load more messages'} */}
+                        {isFetching ? 'Loading...' : 'Load more messages'}
                       </Button>
                     </div>
                   )}

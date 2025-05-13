@@ -34,24 +34,23 @@ export const useChatRoom = () => {
 
   const socketRef = useRef<WebSocket | null>(null);
 
-  const { selectedRoom, messageKeyword, setMessageKeyword } = useChatStore();
+  const { selectedRoom, messageKeyword, setMessageKeyword, page } =
+    useChatStore();
   const { mutatedData: chatListData, setMutatedData: setChatListData } =
     useChatListStore();
 
   const [mutatedData, setMutatedData] = useState<MessagesItem[]>([]);
-  console.log(selectedRoom);
 
-  const { data, isLoading, isError, isSuccess } = useQuery<PrivateChatResponse>(
-    {
-      queryKey: [`message-${selectedRoom.user.id}`],
-      queryFn: () => getMessages(selectedRoom.user.id, 1),
+  const { data, isLoading, isFetching, isError, isSuccess } =
+    useQuery<PrivateChatResponse>({
+      queryKey: [`message-${selectedRoom.user.id}-${page}`],
+      queryFn: () => getMessages(selectedRoom.user.id, page),
       enabled: selectedRoom.user.id !== '',
       initialData,
       refetchOnMount: false,
       refetchOnReconnect: false,
       refetchOnWindowFocus: false,
-    }
-  );
+    });
 
   const formatMessage = useCallback(
     (messages: MessagesItem[]): FormattedMsg[] => {
@@ -170,7 +169,7 @@ export const useChatRoom = () => {
 
   useEffect(() => {
     if (isSuccess) {
-      setMutatedData(data.data.messages);
+      setMutatedData((prev) => [...data.data.messages, ...prev]);
     }
   }, [data.data.messages, isSuccess]);
 
@@ -198,7 +197,6 @@ export const useChatRoom = () => {
       try {
         if (isJSONParseable(event.data)) {
           const newMessage: MessagesItem = JSON.parse(event.data);
-          console.log(newMessage);
 
           if (newMessage.sender.id !== session?.user.id) {
             setMutatedData((prev) => [...prev, newMessage]);
@@ -242,6 +240,15 @@ export const useChatRoom = () => {
       isError,
       formatMessage,
       sendMessage,
+      isFetching,
     };
-  }, [data, formatMessage, isError, isLoading, mutatedData, sendMessage]);
+  }, [
+    data,
+    formatMessage,
+    isError,
+    isFetching,
+    isLoading,
+    mutatedData,
+    sendMessage,
+  ]);
 };
