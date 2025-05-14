@@ -32,7 +32,7 @@ const ChatSection: FC<ChatSectionProps> = ({ withHeader = true }) => {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, []);
 
   return (
     <div className="relative size-full border-r border-b">
