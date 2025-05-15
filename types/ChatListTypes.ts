@@ -1,14 +1,12 @@
+import { UserTypes } from './common/UserTypes';
+
 export interface ChatListResponse {
   success: boolean;
   message: string;
   data: ChatListData[];
 }
 
-export interface ChatListData {
-  id: string;
-  name: string;
-  email: string;
-  image: string;
+export interface ChatListData extends UserTypes {
   latestMessage: LatestMessage;
 }
 

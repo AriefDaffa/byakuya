@@ -5,13 +5,16 @@ import { ScrollArea } from '@/components/atoms/scroll-area';
 import ChatList from '@/components/molecules/ChatList';
 // import { useChatList } from '@/hooks/useChatList';
 // import { useSidebarSearch } from '@/hooks/pages/Chat/useSidebarSearch';
+import Empty from '@/components/atoms/empty';
+import Loader from '@/components/atoms/loader';
+import SidebarHeader from '@/components/molecules/SidebarHeader';
 import { useChatList } from '@/hooks/useChatList';
+import { useChatSearch } from '@/hooks/useChatSearch';
 import { authClient } from '@/lib/auth-client';
 import { useChatListStore } from '@/store/useChatListStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useMediaQuery } from '@mantine/hooks';
 import { FC } from 'react';
-import SidebarHeader from '../molecules/SidebarHeader';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface ChatSidebarProps {}
@@ -22,9 +25,14 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
 
   const matches = useMediaQuery('(min-width: 768px)');
 
-  const { data } = useChatList();
+  const { data, isLoading } = useChatList();
+  const {
+    data: mergedData,
+    onSearch,
+    isLoading: isSearching,
+  } = useChatSearch();
 
-  const { searchKeyword, setSearchKeyword } = useChatListStore();
+  const { searchKeyword } = useChatListStore();
   const { setSelectedRoom, selectedRoom, setOpenChatSlider } = useChatStore();
 
   return (
@@ -33,32 +41,121 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
         <SidebarHeader userName={session?.user.name} />
         <Input
           value={searchKeyword}
-          onChange={(e) => setSearchKeyword(e.target.value)}
+          onChange={(e) => onSearch(e.target.value)}
           placeholder="Search user or messages here..."
         />
       </div>
-      <ScrollArea className="size-full" type="auto">
-        <div className="absolute inset-0">
-          {data.map((item, idx) => (
-            <div
-              onClick={() => {
-                setSelectedRoom({
-                  roomId: '',
-                  user: item,
-                });
+      {searchKeyword !== '' ? (
+        <>
+          {isSearching ? (
+            <Loader />
+          ) : (
+            <ScrollArea className="size-full" type="auto">
+              <div className="absolute inset-0">
+                {mergedData.messages.length > 0 && (
+                  <>
+                    <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
+                      Users
+                    </div>
+                    {mergedData.messages.map((item, idx) => (
+                      <div
+                        onClick={() => {
+                          setSelectedRoom({
+                            roomId: '',
+                            user: item,
+                          });
 
-                if (!matches) {
-                  setOpenChatSlider();
-                }
-              }}
-              key={idx}
-              className="border-b h-20"
-            >
-              <ChatList active={selectedRoom.user.id === item.id} {...item} />
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
+                          if (!matches) {
+                            setOpenChatSlider();
+                          }
+                        }}
+                        key={idx}
+                        className="border-b h-20"
+                      >
+                        <ChatList
+                          active={selectedRoom.user.id === item.id}
+                          latestMessage={{
+                            content: item.content,
+                            createdAt: item.createdAt,
+                            id: '',
+                          }}
+                          {...item}
+                        />
+                      </div>
+                    ))}
+                  </>
+                )}
+                {mergedData.users.length > 0 && (
+                  <>
+                    <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
+                      Users
+                    </div>
+                    {mergedData.users.map((item, idx) => (
+                      <div
+                        onClick={() => {
+                          setSelectedRoom({
+                            roomId: '',
+                            user: item,
+                          });
+
+                          if (!matches) {
+                            setOpenChatSlider();
+                          }
+                        }}
+                        key={idx}
+                        className="border-b h-20"
+                      >
+                        <ChatList
+                          active={selectedRoom.user.id === item.id}
+                          latestMessage={{ content: '', createdAt: '', id: '' }}
+                          {...item}
+                        />
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+          )}
+        </>
+      ) : (
+        <>
+          {isLoading ? (
+            <Loader />
+          ) : data.length === 0 ? (
+            <Empty
+              title="Chat Empty"
+              subTitle="Once you start a conversation, you'll see it listed here"
+            />
+          ) : (
+            <ScrollArea className="size-full" type="auto">
+              <div className="absolute inset-0">
+                {data.map((item, idx) => (
+                  <div
+                    onClick={() => {
+                      setSelectedRoom({
+                        roomId: '',
+                        user: item,
+                      });
+
+                      if (!matches) {
+                        setOpenChatSlider();
+                      }
+                    }}
+                    key={idx}
+                    className="border-b h-20"
+                  >
+                    <ChatList
+                      active={selectedRoom.user.id === item.id}
+                      {...item}
+                    />
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </>
+      )}
       {/* {searchKeyword !== '' ? (
         isLoading ? (
           <Loader />

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UserTypes } from './common/UserTypes';
 
 export const ZUserTypes = z.object({
   keyword: z.string().min(3, { message: 'Minimum 3 characters' }),
@@ -10,11 +11,7 @@ export interface UserResponse {
   data: UserData[];
 }
 
-export interface UserData {
-  id: string;
-  name: string;
-  email: string;
-  image: string;
+export interface UserData extends UserTypes {
   privateChats: PrivateChats[];
 }
 

@@ -1,3 +1,5 @@
+import { UserTypes } from './common/UserTypes';
+
 export interface PrivateChatResponse {
   success: boolean;
   message: string;
@@ -14,20 +16,8 @@ export interface MessagesItem {
   content: string;
   createdAt: string;
   privateChatId: string;
-  sender: Sender;
-  receiver: Receiver;
-}
-export interface Sender {
-  id: string;
-  name: string;
-  email: string;
-  image: string;
-}
-export interface Receiver {
-  id: string;
-  name: string;
-  email: string;
-  image: string;
+  sender: UserTypes;
+  receiver: UserTypes;
 }
 
 export interface FormattedMsg {
