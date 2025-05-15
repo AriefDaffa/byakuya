@@ -20,7 +20,7 @@ const ChatSection: FC<ChatSectionProps> = ({ withHeader = true }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {
-    selectedRoom,
+    selectedUser,
     messageKeyword,
     setMessageKeyword,
     setOpenProfile,
@@ -36,7 +36,7 @@ const ChatSection: FC<ChatSectionProps> = ({ withHeader = true }) => {
 
   return (
     <div className="relative size-full border-r border-b">
-      {selectedRoom.user.name === '' ? (
+      {selectedUser.name === '' ? (
         <div className="size-full flex items-center justify-center text-muted-foreground">
           Select chat to start
         </div>
@@ -44,8 +44,8 @@ const ChatSection: FC<ChatSectionProps> = ({ withHeader = true }) => {
         <div className="flex flex-col size-full">
           {withHeader && (
             <ChatHeader
-              avatar={selectedRoom?.user.image || ''}
-              name={selectedRoom?.user.name || ''}
+              avatar={selectedUser.image || ''}
+              name={selectedUser.name || ''}
               handleOpenProfile={setOpenProfile}
               status=""
             />

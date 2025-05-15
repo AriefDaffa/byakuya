@@ -1,9 +1,8 @@
 'use client';
-// import { generateId } from '@/hooks/fetch/useFetchMessages';
+
 import { authClient } from '@/lib/auth-client';
 import { getMessages } from '@/services/getMessages';
 import { useChatListStore } from '@/store/useChatListStore';
-// import { useChatListStore } from '@/store/useChatListStore';
 import { useChatStore } from '@/store/useChatStore';
 import { ChatListData } from '@/types/ChatListTypes';
 import {
@@ -34,7 +33,7 @@ export const useChatRoom = () => {
 
   const socketRef = useRef<WebSocket | null>(null);
 
-  const { selectedRoom, messageKeyword, setMessageKeyword, page } =
+  const { selectedUser, messageKeyword, setMessageKeyword, page } =
     useChatStore();
   const { mutatedData: chatListData, setMutatedData: setChatListData } =
     useChatListStore();
@@ -43,9 +42,9 @@ export const useChatRoom = () => {
 
   const { data, isLoading, isFetching, isError, isSuccess } =
     useQuery<PrivateChatResponse>({
-      queryKey: [`message-${selectedRoom.user.id}-${page}`],
-      queryFn: () => getMessages(selectedRoom.user.id, page),
-      enabled: selectedRoom.user.id !== '',
+      queryKey: [`message-${selectedUser.id}-${page}`],
+      queryFn: () => getMessages(selectedUser.id, page),
+      enabled: selectedUser.id !== '',
       initialData,
       refetchOnMount: false,
       refetchOnReconnect: false,
@@ -110,19 +109,19 @@ export const useChatRoom = () => {
           name: session?.user.name || '',
         },
         receiver: {
-          id: selectedRoom.user.id || '',
-          email: selectedRoom.user.email || '',
-          image: selectedRoom.user.image || '',
-          name: selectedRoom.user.name || '',
+          id: selectedUser.id || '',
+          email: selectedUser.email || '',
+          image: selectedUser.image || '',
+          name: selectedUser.name || '',
         },
       };
 
       const newListData: ChatListData[] = [
         {
-          id: selectedRoom.user.id || '',
-          email: selectedRoom.user.email || '',
-          image: selectedRoom.user.image || '',
-          name: selectedRoom.user.name || '',
+          id: selectedUser.id || '',
+          email: selectedUser.email || '',
+          image: selectedUser.image || '',
+          name: selectedUser.name || '',
           latestMessage: {
             id: generateId(),
             content: messageKeyword,
@@ -131,15 +130,13 @@ export const useChatRoom = () => {
         },
       ];
 
-      const existingChat = chatListData.some(
-        (el) => el.id === selectedRoom.user.id
-      );
+      const existingChat = chatListData.some((el) => el.id === selectedUser.id);
 
       setMutatedData((prev) => [newMessage, ...prev]);
       setChatListData(
         existingChat
           ? chatListData.map((el) =>
-              el.id === selectedRoom.user.id
+              el.id === selectedUser.id
                 ? {
                     ...el,
                     latestMessage: {
@@ -161,7 +158,7 @@ export const useChatRoom = () => {
   }, [
     chatListData,
     messageKeyword,
-    selectedRoom,
+    selectedUser,
     session,
     setChatListData,
     setMessageKeyword,
@@ -178,18 +175,18 @@ export const useChatRoom = () => {
       socketRef.current.close();
     }
 
-    if (selectedRoom.user.id === '') {
+    if (selectedUser.id === '') {
       return;
     }
 
     const socket = new WebSocket(
-      `${process.env.NEXT_PUBLIC_BASE_WEBSOCKET_URL}/v1/personal-chat?receiver=${selectedRoom.user.id}`
+      `${process.env.NEXT_PUBLIC_BASE_WEBSOCKET_URL}/v1/personal-chat?receiver=${selectedUser.id}`
     );
 
     socketRef.current = socket;
 
     socket.onopen = () => {
-      console.log(`Connected to room ${selectedRoom.user.name}`);
+      console.log(`Connected to room ${selectedUser.name}`);
       // reconnectAttempts = 0;
     };
 
@@ -230,7 +227,7 @@ export const useChatRoom = () => {
     return () => {
       socket.close();
     };
-  }, [selectedRoom, session?.user.id]);
+  }, [selectedUser.id, selectedUser.name, session?.user.id]);
 
   return useMemo(() => {
     return {

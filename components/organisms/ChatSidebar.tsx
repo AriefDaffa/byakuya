@@ -33,7 +33,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
   } = useChatSearch();
 
   const { searchKeyword } = useChatListStore();
-  const { setSelectedRoom, selectedRoom, setOpenChatSlider } = useChatStore();
+  const { setSelectedUser, selectedUser, setOpenChatSlider } = useChatStore();
 
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
@@ -60,10 +60,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
                     {mergedData.messages.map((item, idx) => (
                       <div
                         onClick={() => {
-                          setSelectedRoom({
-                            roomId: '',
-                            user: item,
-                          });
+                          setSelectedUser(item);
 
                           if (!matches) {
                             setOpenChatSlider();
@@ -73,7 +70,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
                         className="border-b h-20"
                       >
                         <ChatList
-                          active={selectedRoom.user.id === item.id}
+                          active={selectedUser.id === item.id}
                           latestMessage={{
                             content: item.content,
                             createdAt: item.createdAt,
@@ -93,10 +90,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
                     {mergedData.users.map((item, idx) => (
                       <div
                         onClick={() => {
-                          setSelectedRoom({
-                            roomId: '',
-                            user: item,
-                          });
+                          setSelectedUser(item);
 
                           if (!matches) {
                             setOpenChatSlider();
@@ -106,7 +100,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
                         className="border-b h-20"
                       >
                         <ChatList
-                          active={selectedRoom.user.id === item.id}
+                          active={selectedUser.id === item.id}
                           latestMessage={{ content: '', createdAt: '', id: '' }}
                           {...item}
                         />
@@ -133,10 +127,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
                 {data.map((item, idx) => (
                   <div
                     onClick={() => {
-                      setSelectedRoom({
-                        roomId: '',
-                        user: item,
-                      });
+                      setSelectedUser(item);
 
                       if (!matches) {
                         setOpenChatSlider();
@@ -145,10 +136,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
                     key={idx}
                     className="border-b h-20"
                   >
-                    <ChatList
-                      active={selectedRoom.user.id === item.id}
-                      {...item}
-                    />
+                    <ChatList active={selectedUser.id === item.id} {...item} />
                   </div>
                 ))}
               </div>
@@ -237,7 +225,7 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
                   message={item.latestMessage?.content}
                   unread={item.unreadCount}
                   fallback={item.user.name.charAt(0)}
-                  active={selectedRoom.user.id === item.user.id}
+                  active={selectedUser.id === item.user.id}
                   time={
                     item.latestMessage
                       ? formatChatTimestamp(item.latestMessage?.createdAt)

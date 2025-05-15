@@ -12,7 +12,7 @@ import { useChatStore } from '@/store/useChatStore';
 
 export default function ChatPage() {
   const {
-    selectedRoom,
+    selectedUser,
     openChatSlider,
     setOpenChatSlider,
     openProfile,
@@ -27,8 +27,8 @@ export default function ChatPage() {
         setOpen={setOpenChatSlider}
         headerComp={
           <ChatHeader
-            avatar={selectedRoom?.user.image || ''}
-            name={selectedRoom?.user.name || ''}
+            avatar={selectedUser.image || ''}
+            name={selectedUser.name || ''}
             handleOpenProfile={setOpenProfile}
             status=""
           />
