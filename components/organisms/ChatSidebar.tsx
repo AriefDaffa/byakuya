@@ -1,12 +1,10 @@
 'use client';
 
+import Empty from '@/components/atoms/empty';
 import { Input } from '@/components/atoms/input';
+import Loader from '@/components/atoms/loader';
 import { ScrollArea } from '@/components/atoms/scroll-area';
 import ChatList from '@/components/molecules/ChatList';
-// import { useChatList } from '@/hooks/useChatList';
-// import { useSidebarSearch } from '@/hooks/pages/Chat/useSidebarSearch';
-import Empty from '@/components/atoms/empty';
-import Loader from '@/components/atoms/loader';
 import SidebarHeader from '@/components/molecules/SidebarHeader';
 import { useChatList } from '@/hooks/useChatList';
 import { useChatSearch } from '@/hooks/useChatSearch';
@@ -14,8 +12,8 @@ import { authClient } from '@/lib/auth-client';
 import { useChatListStore } from '@/store/useChatListStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useMediaQuery } from '@mantine/hooks';
-import { FC } from 'react';
 import { X } from 'lucide-react';
+import { FC } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface ChatSidebarProps {}
@@ -154,99 +152,6 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
           )}
         </>
       )}
-      {/* {searchKeyword !== '' ? (
-        isLoading ? (
-          <Loader />
-        ) : (
-          <ScrollArea className="size-full" type="auto">
-            <div className="absolute inset-0">
-              {searchResult.messages.length === 0 &&
-                searchResult.users.length === 0 && <Empty title="Not found" />}
-              {searchResult.messages.length > 0 && (
-                <div>
-                  <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
-                    Messages
-                  </div>
-                  {searchResult?.messages.map((item, idx) => (
-                    <div onClick={() => {}} key={idx} className="border-b h-20">
-                      <ChatList
-                        avatar={item.userImage || ''}
-                        name={item.userName}
-                        message={item.content}
-                        time={
-                          item.createdAt
-                            ? formatChatTimestamp(item.createdAt)
-                            : ''
-                        }
-                        fallback={item.userName.charAt(0)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-              {searchResult.users.length > 0 && (
-                <div>
-                  <div className="uppercase text-xs text-muted-foreground p-4 border-b font-semibold">
-                    Users
-                  </div>
-                  {searchResult?.users.map((item, idx) => (
-                    <div onClick={() => {}} key={idx} className="border-b h-20">
-                      <ChatList
-                        avatar={item.image || ''}
-                        name={item.name}
-                        message={''}
-                        fallback={item.name.charAt(0)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        )
-      ) : loading ? (
-        <Loader />
-      ) : chatList.length === 0 ? (
-        <Empty
-          title="Chat Empty"
-          subTitle="Once you start a conversation, you'll see it listed here"
-        />
-      ) : (
-        <ScrollArea className="size-full" type="auto">
-          <div className="absolute inset-0">
-            {chatList.map((item, idx) => (
-              <div
-                onClick={() => {
-                  setSelectedRoom({
-                    roomId: item.id,
-                    user: item.user,
-                  });
-
-                  if (!matches) {
-                    setOpenChatSlider();
-                  }
-                }}
-                key={idx}
-                className="border-b h-20"
-              >
-                <ChatList
-                  avatar={item.user.image || ''}
-                  name={item.user.name}
-                  message={item.latestMessage?.content}
-                  unread={item.unreadCount}
-                  fallback={item.user.name.charAt(0)}
-                  active={selectedUser.id === item.user.id}
-                  time={
-                    item.latestMessage
-                      ? formatChatTimestamp(item.latestMessage?.createdAt)
-                      : ''
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      )} */}
     </div>
   );
 };
