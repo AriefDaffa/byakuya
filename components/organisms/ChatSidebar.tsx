@@ -15,6 +15,7 @@ import { useChatListStore } from '@/store/useChatListStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useMediaQuery } from '@mantine/hooks';
 import { FC } from 'react';
+import { X } from 'lucide-react';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface ChatSidebarProps {}
@@ -32,18 +33,27 @@ const ChatSidebar: FC<ChatSidebarProps> = ({}) => {
     isLoading: isSearching,
   } = useChatSearch();
 
-  const { searchKeyword } = useChatListStore();
+  const { searchKeyword, setSearchKeyword } = useChatListStore();
   const { setSelectedUser, selectedUser, setOpenChatSlider } = useChatStore();
 
   return (
     <div className="relative size-full flex flex-col border-l border-b border-r">
       <div className="border-b px-3 pt-6 pb-4 space-y-4">
         <SidebarHeader userName={session?.user.name} />
-        <Input
-          value={searchKeyword}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search user or messages here..."
-        />
+        <div className="w-full relative">
+          <Input
+            value={searchKeyword}
+            onChange={(e) => onSearch(e.target.value)}
+            placeholder="Search user or messages here..."
+          />
+          {searchKeyword !== '' && (
+            <X
+              className="absolute right-2 top-0 bottom-0 my-auto text-muted-foreground cursor-pointer"
+              size={18}
+              onClick={() => setSearchKeyword('')}
+            />
+          )}
+        </div>
       </div>
       {searchKeyword !== '' ? (
         <>
