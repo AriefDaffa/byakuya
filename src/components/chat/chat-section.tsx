@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useChatRoom } from '@/hooks/use-chat-room';
 import { useChatStore } from '@/store/chat-store';
 import { ChatHeader } from '@/components/chat/chat-header';
@@ -15,8 +15,15 @@ interface ChatSectionProps {
 export function ChatSection({ withHeader = true }: ChatSectionProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { selectedUser, messageInput, setMessageInput, toggleProfile, incrementPage } =
-    useChatStore();
+  const {
+    selectedUser,
+    messageInput,
+    setMessageInput,
+    toggleProfile,
+    incrementPage,
+    editingMessage,
+    setEditingMessage,
+  } = useChatStore();
 
   const {
     messageGroups,
@@ -26,11 +33,57 @@ export function ChatSection({ withHeader = true }: ChatSectionProps) {
     currentPage,
     currentUserId,
     sendMessage,
+    sendAttachment,
+    editMessage,
+    deleteMessage,
   } = useChatRoom();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messageGroups]);
+
+  // Handle edit initiation - populate input with message content
+  const handleEdit = useCallback(
+    (messageId: string, content: string) => {
+      setEditingMessage({ id: messageId, content });
+      setMessageInput(content);
+    },
+    [setEditingMessage, setMessageInput],
+  );
+
+  // Handle cancel edit
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessage(null);
+    setMessageInput('');
+  }, [setEditingMessage, setMessageInput]);
+
+  // Handle send or save edit
+  const handleSend = useCallback(async () => {
+    if (editingMessage) {
+      const success = await editMessage(editingMessage.id, messageInput.trim());
+      if (success) {
+        setMessageInput('');
+      }
+    } else {
+      sendMessage();
+    }
+  }, [editingMessage, editMessage, messageInput, setMessageInput, sendMessage]);
+
+  // Handle delete with confirmation
+  const handleDelete = useCallback(
+    async (messageId: string) => {
+      await deleteMessage(messageId);
+    },
+    [deleteMessage],
+  );
+
+  // Handle attachment
+  const handleSendAttachment = useCallback(
+    async (file: File, caption?: string) => {
+      await sendAttachment(file, caption);
+    },
+    [sendAttachment],
+  );
 
   if (!selectedUser) {
     return (
@@ -73,6 +126,8 @@ export function ChatSection({ withHeader = true }: ChatSectionProps) {
                 <MessageGroupComponent
                   key={`${group.senderId}-${idx}`}
                   currentUserId={currentUserId || ''}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
                   {...group}
                 />
               ))}
@@ -85,7 +140,10 @@ export function ChatSection({ withHeader = true }: ChatSectionProps) {
       <MessageInput
         value={messageInput}
         onChange={setMessageInput}
-        onSend={sendMessage}
+        onSend={handleSend}
+        onSendAttachment={handleSendAttachment}
+        editingMessage={editingMessage}
+        onCancelEdit={handleCancelEdit}
       />
     </div>
   );

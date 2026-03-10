@@ -1,4 +1,5 @@
 import type { Profile } from '@/types/database';
+import type { EditingMessage } from '@/types/chat';
 import { create } from 'zustand';
 
 interface ChatState {
@@ -14,6 +15,8 @@ interface ChatState {
   isProfileOpen: boolean;
   /** Current page for message pagination */
   page: number;
+  /** Message currently being edited */
+  editingMessage: EditingMessage | null;
 }
 
 interface ChatActions {
@@ -25,6 +28,7 @@ interface ChatActions {
   incrementPage: () => void;
   resetPage: () => void;
   resetChat: () => void;
+  setEditingMessage: (msg: EditingMessage | null) => void;
 }
 
 export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
@@ -34,6 +38,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   isChatSliderOpen: false,
   isProfileOpen: false,
   page: 1,
+  editingMessage: null,
 
   setSelectedUser: (user) => set({ selectedUser: user, page: 1 }),
   setConversationId: (id) => set({ conversationId: id }),
@@ -42,11 +47,13 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   toggleProfile: () => set({ isProfileOpen: !get().isProfileOpen }),
   incrementPage: () => set({ page: get().page + 1 }),
   resetPage: () => set({ page: 1 }),
+  setEditingMessage: (msg) => set({ editingMessage: msg }),
   resetChat: () =>
     set({
       selectedUser: null,
       conversationId: null,
       messageInput: '',
       page: 1,
+      editingMessage: null,
     }),
 }));

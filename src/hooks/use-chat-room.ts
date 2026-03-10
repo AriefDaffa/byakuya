@@ -7,6 +7,9 @@ import { useRealtimeMessages } from '@/hooks/use-realtime';
 import {
   getMessages,
   sendMessage as sendMessageAction,
+  sendAttachment as sendAttachmentAction,
+  editMessage as editMessageAction,
+  deleteMessage as deleteMessageAction,
   markAsRead,
 } from '@/features/chat/actions';
 import type { MessageWithSender, MessageGroup } from '@/types/chat';
@@ -22,7 +25,8 @@ export function useChatRoom() {
   const [currentPage, setCurrentPage] = useState(1);
   const prevConversationId = useRef<string | null>(null);
 
-  const { conversationId, messageInput, setMessageInput, page } = useChatStore();
+  const { conversationId, messageInput, setMessageInput, page, setEditingMessage } =
+    useChatStore();
 
   // Get current user ID
   useEffect(() => {
@@ -76,9 +80,8 @@ export function useChatRoom() {
   // Handle realtime new messages
   const handleNewMessage = useCallback(
     (message: Message) => {
-      if (message.sender_id === currentUserId) return; // Skip own messages (already added optimistically)
+      if (message.sender_id === currentUserId) return;
 
-      // Fetch the sender profile for the new message
       supabase
         .from('profiles')
         .select('*')
@@ -94,7 +97,6 @@ export function useChatRoom() {
           }
         });
 
-      // Mark as read
       if (conversationId) {
         markAsRead(conversationId);
       }
@@ -141,15 +143,12 @@ export function useChatRoom() {
 
     setMessages((prev) => [...prev, optimisticMsg]);
 
-    // Send via server action
     const result = await sendMessageAction(conversationId, content);
 
     if (result.error) {
-      // Remove optimistic message on error
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
       console.error('Failed to send message:', result.error);
     } else if (result.data) {
-      // Replace optimistic message with real one
       setMessages((prev) =>
         prev.map((m) =>
           m.id === optimisticMsg.id ? (result.data as MessageWithSender) : m,
@@ -157,6 +156,111 @@ export function useChatRoom() {
       );
     }
   }, [conversationId, messageInput, currentUserId, setMessageInput]);
+
+  // Send attachment
+  const sendAttachment = useCallback(
+    async (file: File, caption?: string) => {
+      if (!conversationId || !currentUserId) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const isImage = file.type.startsWith('image/');
+
+      // Optimistic update
+      const optimisticMsg: MessageWithSender = {
+        id: crypto.randomUUID(),
+        conversation_id: conversationId,
+        sender_id: currentUserId,
+        content: caption || file.name,
+        type: isImage ? 'image' : 'file',
+        is_edited: false,
+        is_deleted: false,
+        reply_to_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        sender: {
+          id: currentUserId,
+          name: '',
+          email: '',
+          avatar_url: null,
+          status: 'online',
+          last_seen: new Date().toISOString(),
+          created_at: '',
+          updated_at: '',
+        },
+        attachments: [
+          {
+            id: crypto.randomUUID(),
+            message_id: '',
+            file_name: file.name,
+            file_type: file.type,
+            file_size: file.size,
+            file_url: URL.createObjectURL(file),
+            storage_path: '',
+            created_at: new Date().toISOString(),
+          },
+        ],
+      };
+
+      setMessages((prev) => [...prev, optimisticMsg]);
+
+      const result = await sendAttachmentAction(conversationId, formData, caption);
+
+      if (result.error) {
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+        console.error('Failed to send attachment:', result.error);
+      } else if (result.data) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === optimisticMsg.id ? (result.data as MessageWithSender) : m,
+          ),
+        );
+      }
+    },
+    [conversationId, currentUserId],
+  );
+
+  // Edit message
+  const editMessage = useCallback(
+    async (messageId: string, newContent: string) => {
+      const result = await editMessageAction(messageId, newContent);
+
+      if (result.error) {
+        console.error('Failed to edit message:', result.error);
+        return false;
+      }
+
+      if (result.data) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? (result.data as MessageWithSender) : m)),
+        );
+      }
+
+      setEditingMessage(null);
+      return true;
+    },
+    [setEditingMessage],
+  );
+
+  // Delete message
+  const deleteMessage = useCallback(async (messageId: string) => {
+    const result = await deleteMessageAction(messageId);
+
+    if (result.error) {
+      console.error('Failed to delete message:', result.error);
+      return false;
+    }
+
+    // Update message in list (soft delete - show "deleted" state)
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId ? { ...m, is_deleted: true, content: null } : m,
+      ),
+    );
+
+    return true;
+  }, []);
 
   // Group messages by sender within 1-minute windows
   const formatMessages = useCallback((msgs: MessageWithSender[]): MessageGroup[] => {
@@ -203,6 +307,9 @@ export function useChatRoom() {
       currentPage,
       currentUserId,
       sendMessage,
+      sendAttachment,
+      editMessage,
+      deleteMessage,
     }),
     [
       messages,
@@ -213,6 +320,9 @@ export function useChatRoom() {
       currentPage,
       currentUserId,
       sendMessage,
+      sendAttachment,
+      editMessage,
+      deleteMessage,
     ],
   );
 }

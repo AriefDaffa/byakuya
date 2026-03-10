@@ -13,3 +13,10 @@ export const registerSchema = z.object({
 
 export type LoginFormData = z.infer<typeof loginSchema>;
 export type RegisterFormData = z.infer<typeof registerSchema>;
+
+export type SignUpResponse = {
+  success?: boolean;
+  error?: string;
+  message?: string;
+  autoSignedIn?: boolean;
+};

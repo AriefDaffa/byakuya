@@ -1,6 +1,7 @@
 'use client';
 
 import { signOut } from '@/features/auth/actions';
+import { useChatStore } from '@/store/chat-store';
 import { EllipsisVertical, LogOut, Moon, Paintbrush, Sun, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
@@ -13,6 +14,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { toggleProfile, selectedUser } = useChatStore();
 
   useEffect(() => {
     setMounted(true);
@@ -45,6 +47,12 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
               <div className="bg-border my-1 h-px" />
               <button
                 type="button"
+                onClick={() => {
+                  if (selectedUser) {
+                    toggleProfile();
+                  }
+                  setIsMenuOpen(false);
+                }}
                 className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
               >
                 <User className="size-4" /> Profile

@@ -28,9 +28,12 @@ export function RegisterForm() {
       const result = await signUp(data);
       if (result?.error) {
         toast.error(result.error);
+      } else if (result?.autoSignedIn) {
+        toast.success('Account created and you are now logged in!');
+        router.push('/');
       } else {
-        toast.success('Account created! Please check your email to verify.');
-        router.push('/login');
+        toast.success(result?.message || 'Account created successfully!');
+        form.reset();
       }
     } catch {
       toast.error('An unexpected error occurred');

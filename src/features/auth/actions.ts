@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import type { LoginFormData, RegisterFormData } from '@/types/auth';
+import type { LoginFormData, RegisterFormData, SignUpResponse } from '@/types/auth';
 
 export async function signIn(data: LoginFormData) {
   const supabase = await createClient();
@@ -31,8 +31,10 @@ export async function signIn(data: LoginFormData) {
   redirect('/');
 }
 
-export async function signUp(data: RegisterFormData) {
+export async function signUp(data: RegisterFormData): Promise<SignUpResponse> {
   const supabase = await createClient();
+  const requireEmailConfirmation =
+    process.env.NEXT_PUBLIC_REQUIRE_EMAIL_CONFIRMATION === 'true';
 
   const { error } = await supabase.auth.signUp({
     email: data.email,
@@ -49,7 +51,32 @@ export async function signUp(data: RegisterFormData) {
     return { error: error.message };
   }
 
-  return { success: true };
+  if (!requireEmailConfirmation) {
+    // Auto-sign in the user if email confirmation is disabled
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
+    });
+
+    if (signInError) {
+      // Sign up succeeded but auto-login failed, user can still log in manually
+      return {
+        success: true,
+        message: 'Account created! You can now log in.',
+      };
+    }
+
+    return {
+      success: true,
+      autoSignedIn: true,
+      message: 'Account created and you are now logged in!',
+    };
+  }
+
+  return {
+    success: true,
+    message: 'Account created! Please check your email to confirm your account.',
+  };
 }
 
 export async function signOut() {

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 
 const MESSAGES_PER_PAGE = 30;
 
-/** Send a message in a conversation */
+/** Send a text message in a conversation */
 export async function sendMessage(conversationId: string, content: string) {
   const supabase = await createClient();
   const {
@@ -27,6 +27,135 @@ export async function sendMessage(conversationId: string, content: string) {
 
   if (error) return { error: error.message };
   return { data };
+}
+
+/** Send a message with file attachment */
+export async function sendAttachment(
+  conversationId: string,
+  formData: FormData,
+  caption?: string,
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'Not authenticated' };
+
+  const file = formData.get('file') as File | null;
+  if (!file) return { error: 'No file provided' };
+
+  // Upload file to storage
+  const fileExt = file.name.split('.').pop();
+  const storagePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('attachments')
+    .upload(storagePath, file);
+
+  if (uploadError) return { error: uploadError.message };
+
+  // Get public URL
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('attachments').getPublicUrl(storagePath);
+
+  // Determine message type
+  const isImage = file.type.startsWith('image/');
+  const messageType = isImage ? 'image' : 'file';
+
+  // Create message
+  const { data: message, error: msgError } = await supabase
+    .from('messages')
+    .insert({
+      conversation_id: conversationId,
+      sender_id: user.id,
+      content: caption || file.name,
+      type: messageType,
+    })
+    .select('*, sender:profiles!messages_sender_id_fkey(*)')
+    .single();
+
+  if (msgError) return { error: msgError.message };
+
+  // Create attachment record
+  const { error: attachError } = await supabase.from('attachments').insert({
+    message_id: message.id,
+    file_name: file.name,
+    file_type: file.type,
+    file_size: file.size,
+    file_url: publicUrl,
+    storage_path: storagePath,
+  });
+
+  if (attachError) return { error: attachError.message };
+
+  return {
+    data: {
+      ...message,
+      attachments: [
+        {
+          id: crypto.randomUUID(),
+          message_id: message.id,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          file_url: publicUrl,
+          storage_path: storagePath,
+          created_at: new Date().toISOString(),
+        },
+      ],
+    },
+  };
+}
+
+/** Edit a message (only own messages) */
+export async function editMessage(messageId: string, newContent: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'Not authenticated' };
+  if (!newContent.trim()) return { error: 'Message cannot be empty' };
+
+  const { data, error } = await supabase
+    .from('messages')
+    .update({
+      content: newContent.trim(),
+      is_edited: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', messageId)
+    .eq('sender_id', user.id)
+    .select('*, sender:profiles!messages_sender_id_fkey(*)')
+    .single();
+
+  if (error) return { error: error.message };
+  return { data };
+}
+
+/** Soft-delete a message (only own messages) */
+export async function deleteMessage(messageId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'Not authenticated' };
+
+  const { error } = await supabase
+    .from('messages')
+    .update({
+      is_deleted: true,
+      content: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', messageId)
+    .eq('sender_id', user.id);
+
+  if (error) return { error: error.message };
+  return { success: true };
 }
 
 /** Get paginated messages for a conversation */

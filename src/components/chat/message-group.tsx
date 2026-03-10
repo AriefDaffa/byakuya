@@ -8,6 +8,8 @@ import { useEffect, useRef } from 'react';
 
 interface MessageGroupProps extends MessageGroup {
   currentUserId: string;
+  onEdit?: (messageId: string, content: string) => void;
+  onDelete?: (messageId: string) => void;
 }
 
 export function MessageGroupComponent({
@@ -16,6 +18,8 @@ export function MessageGroupComponent({
   senderAvatar,
   messages,
   currentUserId,
+  onEdit,
+  onDelete,
 }: MessageGroupProps) {
   const isOwn = senderId === currentUserId;
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -50,9 +54,13 @@ export function MessageGroupComponent({
             )}
           </div>
           {messages.map((msg) => (
-            <MessageBubble key={msg.id} variant={isOwn ? 'sent' : 'received'}>
-              {msg.content}
-            </MessageBubble>
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              variant={isOwn ? 'sent' : 'received'}
+              onEdit={isOwn ? onEdit : undefined}
+              onDelete={isOwn ? onDelete : undefined}
+            />
           ))}
         </div>
       </div>

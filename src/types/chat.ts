@@ -1,4 +1,4 @@
-import type { Profile, Message, Conversation } from './database';
+import type { Profile, Message, Conversation, Attachment } from './database';
 
 // ============================================================================
 // Chat domain types
@@ -12,9 +12,10 @@ export interface ChatListItem {
   unreadCount: number;
 }
 
-/** A message with sender profile for display */
+/** A message with sender profile and optional attachments for display */
 export interface MessageWithSender extends Message {
   sender: Profile;
+  attachments?: Attachment[];
 }
 
 /** Grouped messages from the same sender within a time window */
@@ -29,4 +30,10 @@ export interface MessageGroup {
 export interface SearchResults {
   users: Profile[];
   messages: (Message & { sender: Profile; conversation_id: string })[];
+}
+
+/** State for message being edited */
+export interface EditingMessage {
+  id: string;
+  content: string;
 }
