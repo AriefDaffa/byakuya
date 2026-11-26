@@ -6,7 +6,7 @@ interface ReceiverProfileProps {
   avatar?: string;
   name?: string;
   email?: string;
-  status?: string;
+  status?: string | null;
 }
 
 export function ReceiverProfile({

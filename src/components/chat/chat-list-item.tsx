@@ -45,7 +45,9 @@ export function ChatListItemComponent({
         </div>
         <div className="flex items-center justify-between">
           <p className="text-muted-foreground truncate text-sm">
-            {lastMessage?.content || 'No messages yet'}
+            {lastMessage?.is_deleted
+              ? 'Message deleted'
+              : lastMessage?.content || 'No messages yet'}
           </p>
           {unreadCount > 0 && (
             <span className="bg-primary text-primary-foreground ml-2 inline-flex size-5 items-center justify-center rounded-full text-[10px] font-bold">

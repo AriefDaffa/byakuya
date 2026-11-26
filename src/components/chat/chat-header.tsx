@@ -1,13 +1,13 @@
 'use client';
 
-import { Video, Phone, MoreVertical } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
 interface ChatHeaderProps {
   name: string;
   avatar: string;
-  status?: string;
+  status?: string | null;
   className?: string;
   onProfileClick?: () => void;
 }
@@ -37,20 +37,6 @@ export function ChatHeader({
         </div>
       </button>
       <div className="hidden items-center gap-2 md:flex">
-        <button
-          type="button"
-          className="hover:bg-accent inline-flex size-9 items-center justify-center rounded-full"
-          aria-label="Video call"
-        >
-          <Video className="text-muted-foreground size-5" />
-        </button>
-        <button
-          type="button"
-          className="hover:bg-accent inline-flex size-9 items-center justify-center rounded-full"
-          aria-label="Voice call"
-        >
-          <Phone className="text-muted-foreground size-5" />
-        </button>
         <button
           type="button"
           className="hover:bg-accent inline-flex size-9 items-center justify-center rounded-full"

@@ -32,7 +32,9 @@ export function MessageInput({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      // `isComposing` guards against sending while an IME candidate window is
+      // open (e.g. Japanese/Chinese input).
+      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
         onSend();
       }

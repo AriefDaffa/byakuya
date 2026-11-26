@@ -1,6 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { toast } from 'sonner';
 import { useChatList } from '@/hooks/use-chat-list';
 import { useChatSearch } from '@/hooks/use-chat-search';
 import { useChatListStore } from '@/store/chat-list-store';
@@ -11,19 +12,24 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Loader } from '@/components/ui/loader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getOrCreateConversation } from '@/features/chat/actions';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/types/database';
 
 export function ChatSidebar() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
 
   const { data, isLoading } = useChatList();
   const { onSearch, results, isLoading: isSearching } = useChatSearch();
-  const { searchKeyword, setSearchKeyword } = useChatListStore();
-  const { setSelectedUser, selectedUser, setConversationId, toggleChatSlider } =
-    useChatStore();
+  const searchKeyword = useChatListStore((state) => state.searchKeyword);
+  const setSearchKeyword = useChatListStore((state) => state.setSearchKeyword);
+  const setSelectedUser = useChatStore((state) => state.setSelectedUser);
+  const selectedUser = useChatStore((state) => state.selectedUser);
+  const setConversationId = useChatStore((state) => state.setConversationId);
+  const toggleChatSlider = useChatStore((state) => state.toggleChatSlider);
+  const setMessageInput = useChatStore((state) => state.setMessageInput);
+  const setEditingMessage = useChatStore((state) => state.setEditingMessage);
 
   // Get current user profile
   useEffect(() => {
@@ -39,36 +45,66 @@ export function ChatSidebar() {
     });
   }, [supabase]);
 
-  const handleSelectUser = useCallback(
-    async (user: Profile) => {
-      setSelectedUser(user);
-
-      // Get or create conversation
-      const result = await getOrCreateConversation(user.id);
-      if (result.conversationId) {
-        setConversationId(result.conversationId);
-      }
-
-      // Open chat slider on mobile
-      const isMobile = window.innerWidth < 768;
-      if (isMobile) {
-        toggleChatSlider();
-      }
-    },
-    [setSelectedUser, setConversationId, toggleChatSlider],
-  );
-
-  const handleSelectConversation = useCallback(
+  const openChat = useCallback(
     (conversationId: string, user: Profile) => {
       setSelectedUser(user);
       setConversationId(conversationId);
+      // Never carry a draft or an active edit across conversations.
+      setMessageInput('');
+      setEditingMessage(null);
+      setSearchKeyword('');
+      onSearch('');
 
-      const isMobile = window.innerWidth < 768;
-      if (isMobile) {
+      if (window.innerWidth < 768) {
         toggleChatSlider();
       }
     },
-    [setSelectedUser, setConversationId, toggleChatSlider],
+    [
+      onSearch,
+      setConversationId,
+      setEditingMessage,
+      setMessageInput,
+      setSearchKeyword,
+      setSelectedUser,
+      toggleChatSlider,
+    ],
+  );
+
+  const handleSelectUser = useCallback(
+    async (user: Profile) => {
+      // Resolve the conversation *before* selecting it: opening a chat with a
+      // null conversation ID would leave the UI in a broken state.
+      const result = await getOrCreateConversation(user.id);
+
+      if ('error' in result && result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      if (!('conversationId' in result) || !result.conversationId) {
+        toast.error('Unable to open conversation');
+        return;
+      }
+
+      openChat(result.conversationId, user);
+    },
+    [openChat],
+  );
+
+  const handleSelectSearchMessage = useCallback(
+    (conversationId: string) => {
+      // Open the conversation the message belongs to. `msg.sender` is who wrote
+      // the message, which is not necessarily the person we are chatting with.
+      const item = data.find((entry) => entry.conversation.id === conversationId);
+
+      if (!item?.otherUser) {
+        toast.error('Unable to open that conversation');
+        return;
+      }
+
+      openChat(conversationId, item.otherUser);
+    },
+    [data, openChat],
   );
 
   return (
@@ -141,7 +177,7 @@ export function ChatSidebar() {
                   <button
                     key={msg.id}
                     type="button"
-                    onClick={() => handleSelectUser(msg.sender)}
+                    onClick={() => handleSelectSearchMessage(msg.conversation_id)}
                     className="hover:bg-accent flex w-full items-center gap-3 border-b px-3 py-3 text-left transition-colors"
                   >
                     <Avatar className="size-10">
@@ -154,7 +190,9 @@ export function ChatSidebar() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium">{msg.sender.name}</p>
+                      <p className="font-medium">
+                        {msg.sender.id === currentUser?.id ? 'You' : msg.sender.name}
+                      </p>
                       <p className="text-muted-foreground truncate text-sm">
                         {msg.content}
                       </p>
@@ -186,8 +224,7 @@ export function ChatSidebar() {
                   item={item}
                   isActive={selectedUser?.id === item.otherUser?.id}
                   onClick={() =>
-                    item.otherUser &&
-                    handleSelectConversation(item.conversation.id, item.otherUser)
+                    item.otherUser && openChat(item.conversation.id, item.otherUser)
                   }
                 />
               ))}

@@ -1,24 +1,51 @@
 'use client';
 
 import { signOut } from '@/features/auth/actions';
+import { useChatListStore } from '@/store/chat-list-store';
 import { useChatStore } from '@/store/chat-store';
 import { EllipsisVertical, LogOut, Moon, Paintbrush, Sun, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 
 interface SidebarHeaderProps {
   userName?: string;
 }
 
+const emptySubscribe = () => () => {};
+
+/**
+ * Hydration-safe "is the client mounted" flag.
+ * `useSyncExternalStore` returns `false` during SSR and `true` on the client
+ * without calling `setState` from an effect.
+ */
+function useIsMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
+
 export function SidebarHeader({ userName }: SidebarHeaderProps) {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsMounted();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { toggleProfile, selectedUser } = useChatStore();
+  const toggleProfile = useChatStore((state) => state.toggleProfile);
+  const selectedUser = useChatStore((state) => state.selectedUser);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const handleSignOut = () => {
+    // Clear all user-scoped state before signing out so it can never leak
+    // into the next session.
+    useChatStore.getState().resetChat();
+    useChatStore.setState({ isChatSliderOpen: false, isProfileOpen: false });
+
+    const chatListStore = useChatListStore.getState();
+    chatListStore.setChatList([]);
+    chatListStore.setSearchKeyword('');
+
+    setIsMenuOpen(false);
+    void signOut();
+  };
 
   return (
     <div className="flex items-center justify-between gap-2">
@@ -81,7 +108,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
               <div className="bg-border my-1 h-px" />
               <button
                 type="button"
-                onClick={() => signOut()}
+                onClick={handleSignOut}
                 className="text-destructive hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
               >
                 <LogOut className="size-4" /> Sign out

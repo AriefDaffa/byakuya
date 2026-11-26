@@ -4,7 +4,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageBubble } from '@/components/ui/message-bubble';
 import { formatChatTimestamp } from '@/lib/format';
 import type { MessageGroup } from '@/types/chat';
-import { useEffect, useRef } from 'react';
 
 interface MessageGroupProps extends MessageGroup {
   currentUserId: string;
@@ -22,14 +21,9 @@ export function MessageGroupComponent({
   onDelete,
 }: MessageGroupProps) {
   const isOwn = senderId === currentUserId;
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
 
   return (
-    <div className="mb-4" ref={messagesEndRef}>
+    <div className="mb-4">
       <div className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
         <Avatar className="hidden size-10 md:block">
           <AvatarImage src={senderAvatar || ''} alt={senderName} />

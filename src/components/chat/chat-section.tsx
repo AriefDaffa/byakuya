@@ -8,22 +8,17 @@ import { MessageGroupComponent } from '@/components/chat/message-group';
 import { MessageInput } from '@/components/chat/message-input';
 import { Loader } from '@/components/ui/loader';
 
-interface ChatSectionProps {
-  withHeader?: boolean;
-}
-
-export function ChatSection({ withHeader = true }: ChatSectionProps) {
+export function ChatSection() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
 
-  const {
-    selectedUser,
-    messageInput,
-    setMessageInput,
-    toggleProfile,
-    incrementPage,
-    editingMessage,
-    setEditingMessage,
-  } = useChatStore();
+  const selectedUser = useChatStore((state) => state.selectedUser);
+  const messageInput = useChatStore((state) => state.messageInput);
+  const setMessageInput = useChatStore((state) => state.setMessageInput);
+  const toggleProfile = useChatStore((state) => state.toggleProfile);
+  const incrementPage = useChatStore((state) => state.incrementPage);
+  const editingMessage = useChatStore((state) => state.editingMessage);
+  const setEditingMessage = useChatStore((state) => state.setEditingMessage);
 
   const {
     messageGroups,
@@ -38,8 +33,21 @@ export function ChatSection({ withHeader = true }: ChatSectionProps) {
     deleteMessage,
   } = useChatRoom();
 
+  // Scroll to the bottom on initial load and when a message is appended at the
+  // end of the list. Loading older pages prepends messages and must not move
+  // the viewport.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const lastGroup = messageGroups[messageGroups.length - 1];
+    const lastMessage = lastGroup?.messages[lastGroup.messages.length - 1];
+    const lastMessageId = lastMessage?.id ?? null;
+
+    if (lastMessageId !== null && lastMessageId !== lastMessageIdRef.current) {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: lastMessageIdRef.current === null ? 'auto' : 'smooth',
+      });
+    }
+
+    lastMessageIdRef.current = lastMessageId;
   }, [messageGroups]);
 
   // Handle edit initiation - populate input with message content
@@ -95,14 +103,12 @@ export function ChatSection({ withHeader = true }: ChatSectionProps) {
 
   return (
     <div className="relative flex size-full flex-col border-r border-b">
-      {withHeader && (
-        <ChatHeader
-          avatar={selectedUser.avatar_url || ''}
-          name={selectedUser.name}
-          status={selectedUser.status}
-          onProfileClick={toggleProfile}
-        />
-      )}
+      <ChatHeader
+        avatar={selectedUser.avatar_url || ''}
+        name={selectedUser.name}
+        status={selectedUser.status}
+        onProfileClick={toggleProfile}
+      />
 
       <div className="flex-1 overflow-hidden">
         {isLoading ? (
@@ -124,7 +130,7 @@ export function ChatSection({ withHeader = true }: ChatSectionProps) {
               )}
               {messageGroups.map((group, idx) => (
                 <MessageGroupComponent
-                  key={`${group.senderId}-${idx}`}
+                  key={group.messages[0]?.id ?? idx}
                   currentUserId={currentUserId || ''}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
