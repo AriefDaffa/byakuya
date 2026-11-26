@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 20.9+
 - A Supabase project (free tier works for development)
 - Vercel account (recommended) or any Node.js hosting
 
@@ -79,12 +79,12 @@ Or connect your GitHub repository in the Vercel dashboard for automatic deployme
 Create a `Dockerfile`:
 
 ```dockerfile
-FROM node:18-alpine AS base
+FROM node:22-alpine AS base
 
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
 FROM base AS builder
 WORKDIR /app
@@ -148,11 +148,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run type-check
       - run: npm run lint
-      - run: npm run test
+      - run: npx vitest run
       - run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -187,7 +188,7 @@ jobs:
 
 3. **Edge Functions** — Consider moving heavy operations to Supabase Edge Functions if needed.
 
-4. **Caching** — TanStack Query handles client-side caching with configurable `staleTime` and `gcTime`.
+4. **Signed Attachment URLs** — Private `attachments` bucket objects are served via short-lived signed URLs rather than permanent public URLs.
 
 ---
 

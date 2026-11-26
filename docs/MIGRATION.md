@@ -114,10 +114,10 @@ If you have existing data from the old system, you'll need to:
 
 **New:** Supabase Auth with `@supabase/ssr` for cookie management:
 
-- `src/lib/supabase/client.ts` — Browser client
+- `src/lib/supabase/client.ts` — Browser client (singleton)
 - `src/lib/supabase/server.ts` — Server client (uses cookies)
-- `src/lib/supabase/middleware.ts` — Session refresh middleware
-- `src/middleware.ts` — Route protection
+- `src/lib/supabase/middleware.ts` — Session refresh middleware (preserves cookies on redirects)
+- `src/proxy.ts` — Next.js 16 route protection proxy
 
 ### API Layer
 
@@ -125,8 +125,8 @@ If you have existing data from the old system, you'll need to:
 
 **New:** Server Actions in `src/features/`:
 
-- `src/features/auth/actions.ts` — `signIn`, `signUp`, `signOut`, `getSession`, `getProfile`
-- `src/features/chat/actions.ts` — `sendMessage`, `getMessages`, `getChatList`, `searchUsers`, etc.
+- `src/features/auth/actions.ts` — `signIn`, `signUp`, `signOut`, `updateStatus`
+- `src/features/chat/actions.ts` — `sendMessage`, `sendAttachment`, `editMessage`, `deleteMessage`, `getMessages`, `getChatList`, `markAsRead`, `searchUsers`, `searchMessages` (backed by `schemas.ts`, `queries.ts`, and `attachments.ts`)
 
 ### Realtime
 
