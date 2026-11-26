@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { useChatStore } from '@/store/chat-store';
 import { useRealtimeMessages } from '@/hooks/use-realtime';
@@ -12,109 +13,244 @@ import {
   deleteMessage as deleteMessageAction,
   markAsRead,
 } from '@/features/chat/actions';
+import type { Attachment, Message, Profile } from '@/types/database';
 import type { MessageWithSender, MessageGroup } from '@/types/chat';
-import type { Message } from '@/types/database';
+
+const EMPTY_MESSAGES: MessageWithSender[] = [];
+
+function createPlaceholderSender(senderId: string): Profile {
+  return {
+    id: senderId,
+    name: '',
+    email: '',
+    avatar_url: null,
+    status: null,
+    last_seen: null,
+    created_at: '',
+    updated_at: '',
+  };
+}
+
+function isFileMessage(message: Message): boolean {
+  return message.type === 'image' || message.type === 'file';
+}
 
 export function useChatRoom() {
   const supabase = createClient();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<MessageWithSender[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(false);
+  const [loadedConversationId, setLoadedConversationId] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const prevConversationId = useRef<string | null>(null);
 
-  const { conversationId, messageInput, setMessageInput, page, setEditingMessage } =
-    useChatStore();
+  const requestSequenceRef = useRef(0);
+  const previewUrlsRef = useRef<Set<string>>(new Set());
+
+  const {
+    conversationId,
+    messageInput,
+    setMessageInput,
+    page,
+    setEditingMessage,
+    messages,
+    setMessages,
+    hasMore,
+    setHasMore,
+  } = useChatStore();
 
   // Get current user ID
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setCurrentUserId(user?.id || null);
-    });
-  }, [supabase.auth]);
+    let cancelled = false;
 
-  // Fetch messages when conversation changes
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!cancelled) {
+        setCurrentUserId(user?.id ?? null);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
+  // Fetch messages when the conversation or page changes. A monotonically
+  // increasing request id (plus a conversation check) guarantees that a slow
+  // response for a conversation that is no longer active can never overwrite
+  // the active conversation's messages.
   useEffect(() => {
     if (!conversationId) {
-      setMessages([]);
+      requestSequenceRef.current += 1;
       return;
     }
 
-    // Reset messages when conversation changes
-    if (prevConversationId.current !== conversationId) {
-      setMessages([]);
-      prevConversationId.current = conversationId;
-      setIsLoading(true);
-    } else {
-      setIsFetching(true);
-    }
+    const requestId = ++requestSequenceRef.current;
 
-    getMessages(conversationId, page).then((result) => {
-      if ('error' in result && result.error) {
-        console.error('Failed to fetch messages:', result.error);
-      } else {
+    const isCurrentRequest = () =>
+      requestId === requestSequenceRef.current &&
+      useChatStore.getState().conversationId === conversationId;
+
+    void getMessages(conversationId, page)
+      .then((result) => {
+        if (!isCurrentRequest()) return;
+
+        if ('error' in result && result.error) {
+          console.error('Failed to fetch messages:', result.error);
+          setMessages([]);
+          setHasMore(false);
+          setLoadedConversationId(conversationId);
+          setCurrentPage(page);
+          return;
+        }
+
         const typed = (result.data || []) as MessageWithSender[];
+
         if (page === 1) {
           setMessages(typed);
         } else {
-          // Prepend older messages
-          setMessages((prev) => [...typed, ...prev]);
+          // Prepend older messages while de-duplicating by id.
+          setMessages((previous) => {
+            const existingIds = new Set(previous.map((message) => message.id));
+            const older = typed.filter((message) => !existingIds.has(message.id));
+            return [...older, ...previous];
+          });
         }
+
         setTotalPages(result.totalPages);
         setCurrentPage(result.currentPage);
-      }
-      setIsLoading(false);
-      setIsFetching(false);
-    });
-  }, [conversationId, page]);
+        setHasMore(result.currentPage < result.totalPages);
+        setLoadedConversationId(conversationId);
+      })
+      .catch((error: unknown) => {
+        if (!isCurrentRequest()) return;
+        console.error('Failed to fetch messages:', error);
+        setMessages([]);
+        setHasMore(false);
+        setLoadedConversationId(conversationId);
+        setCurrentPage(page);
+      });
+
+    return () => {
+      // Invalidate in-flight responses for this effect run.
+      requestSequenceRef.current += 1;
+    };
+  }, [conversationId, page, setMessages, setHasMore]);
 
   // Mark as read when opening a conversation
   useEffect(() => {
     if (conversationId) {
-      markAsRead(conversationId);
+      void markAsRead(conversationId);
     }
   }, [conversationId]);
 
-  // Handle realtime new messages
-  const handleNewMessage = useCallback(
+  // Realtime insert/update events merge into the message list by id. Own
+  // messages from another tab are included because we no longer skip events
+  // based on `sender_id`.
+  const mergeMessage = useCallback(
     (message: Message) => {
-      if (message.sender_id === currentUserId) return;
+      if (!conversationId || message.conversation_id !== conversationId) return;
 
-      supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', message.sender_id)
-        .single()
-        .then(({ data: sender }) => {
-          if (sender) {
-            const msgWithSender: MessageWithSender = {
-              ...message,
-              sender,
-            };
-            setMessages((prev) => [...prev, msgWithSender]);
-          }
-        });
+      setMessages((previous) => {
+        const index = previous.findIndex((item) => item.id === message.id);
 
-      if (conversationId) {
-        markAsRead(conversationId);
-      }
+        if (index === -1) {
+          return [
+            ...previous,
+            { ...message, sender: createPlaceholderSender(message.sender_id) },
+          ];
+        }
+
+        const next = [...previous];
+        next[index] = { ...previous[index], ...message };
+        return next;
+      });
     },
-    [currentUserId, conversationId, supabase],
+    [conversationId, setMessages],
   );
 
-  // Subscribe to realtime messages
+  const hydrateMessage = useCallback(
+    async (message: Message) => {
+      const activeConversationId = conversationId;
+      if (!activeConversationId) return;
+
+      const [{ data: sender }, attachmentsResult] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', message.sender_id).maybeSingle(),
+        isFileMessage(message)
+          ? supabase.from('attachments').select('*').eq('message_id', message.id)
+          : Promise.resolve({ data: [] as Attachment[] }),
+      ]);
+
+      if (useChatStore.getState().conversationId !== activeConversationId) return;
+
+      const attachments = (attachmentsResult.data ?? []) as Attachment[];
+
+      setMessages((previous) => {
+        const index = previous.findIndex((item) => item.id === message.id);
+        if (index === -1) return previous;
+
+        const next = [...previous];
+        next[index] = {
+          ...previous[index],
+          ...(sender ? { sender } : {}),
+          ...(isFileMessage(message) ? { attachments } : {}),
+        };
+        return next;
+      });
+    },
+    [conversationId, setMessages, supabase],
+  );
+
+  const handleNewMessage = useCallback(
+    (message: Message) => {
+      mergeMessage(message);
+      void hydrateMessage(message);
+
+      if (conversationId) {
+        void markAsRead(conversationId);
+      }
+    },
+    [conversationId, hydrateMessage, mergeMessage],
+  );
+
+  const handleMessageUpdate = useCallback(
+    (message: Message) => {
+      mergeMessage(message);
+
+      // A realtime update can arrive for a file message that was never seen
+      // locally (for example after a reconnect), so hydrate it as well.
+      if (isFileMessage(message)) {
+        void hydrateMessage(message);
+      }
+    },
+    [hydrateMessage, mergeMessage],
+  );
+
+  const handleMessageDelete = useCallback(
+    (message: Message) => {
+      if (!conversationId) return;
+      // DELETE payloads only include the primary key by default, so the
+      // conversation id can be absent. Fall back to removing by message id.
+      if (message.conversation_id && message.conversation_id !== conversationId) {
+        return;
+      }
+
+      setMessages((previous) => previous.filter((item) => item.id !== message.id));
+    },
+    [conversationId, setMessages],
+  );
+
   useRealtimeMessages({
     conversationId,
     onNewMessage: handleNewMessage,
+    onMessageUpdate: handleMessageUpdate,
+    onMessageDelete: handleMessageDelete,
   });
 
   // Send message
   const sendMessage = useCallback(async () => {
-    if (!conversationId || !messageInput.trim() || !currentUserId) return;
+    if (!conversationId || !currentUserId) return;
 
     const content = messageInput.trim();
+    if (!content) return;
+
     setMessageInput('');
 
     // Optimistic update
@@ -129,43 +265,52 @@ export function useChatRoom() {
       reply_to_id: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      sender: {
-        id: currentUserId,
-        name: '',
-        email: '',
-        avatar_url: null,
-        status: 'online',
-        last_seen: new Date().toISOString(),
-        created_at: '',
-        updated_at: '',
-      },
+      sender: createPlaceholderSender(currentUserId),
     };
 
-    setMessages((prev) => [...prev, optimisticMsg]);
+    setMessages((previous) => [...previous, optimisticMsg]);
 
     const result = await sendMessageAction(conversationId, content);
 
     if (result.error) {
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
-      console.error('Failed to send message:', result.error);
-    } else if (result.data) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === optimisticMsg.id ? (result.data as MessageWithSender) : m,
-        ),
+      setMessages((previous) =>
+        previous.filter((message) => message.id !== optimisticMsg.id),
       );
+      setMessageInput(content);
+      toast.error(result.error);
+      return;
     }
-  }, [conversationId, messageInput, currentUserId, setMessageInput]);
+
+    if (result.data) {
+      const saved = result.data as MessageWithSender;
+      setMessages((previous) => {
+        const withoutOptimistic = previous.filter(
+          (message) => message.id !== optimisticMsg.id && message.id !== saved.id,
+        );
+        return [...withoutOptimistic, saved];
+      });
+    }
+  }, [conversationId, messageInput, currentUserId, setMessageInput, setMessages]);
 
   // Send attachment
   const sendAttachment = useCallback(
     async (file: File, caption?: string) => {
       if (!conversationId || !currentUserId) return;
 
+      const previousInput = messageInput;
       const formData = new FormData();
       formData.append('file', file);
 
       const isImage = file.type.startsWith('image/');
+      const previewUrl = URL.createObjectURL(file);
+      previewUrlsRef.current.add(previewUrl);
+
+      const revokePreview = () => {
+        if (previewUrlsRef.current.has(previewUrl)) {
+          URL.revokeObjectURL(previewUrl);
+          previewUrlsRef.current.delete(previewUrl);
+        }
+      };
 
       // Optimistic update
       const optimisticMsg: MessageWithSender = {
@@ -179,16 +324,7 @@ export function useChatRoom() {
         reply_to_id: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        sender: {
-          id: currentUserId,
-          name: '',
-          email: '',
-          avatar_url: null,
-          status: 'online',
-          last_seen: new Date().toISOString(),
-          created_at: '',
-          updated_at: '',
-        },
+        sender: createPlaceholderSender(currentUserId),
         attachments: [
           {
             id: crypto.randomUUID(),
@@ -196,29 +332,39 @@ export function useChatRoom() {
             file_name: file.name,
             file_type: file.type,
             file_size: file.size,
-            file_url: URL.createObjectURL(file),
+            file_url: previewUrl,
             storage_path: '',
             created_at: new Date().toISOString(),
           },
         ],
       };
 
-      setMessages((prev) => [...prev, optimisticMsg]);
+      setMessages((previous) => [...previous, optimisticMsg]);
 
       const result = await sendAttachmentAction(conversationId, formData, caption);
 
       if (result.error) {
-        setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
-        console.error('Failed to send attachment:', result.error);
-      } else if (result.data) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === optimisticMsg.id ? (result.data as MessageWithSender) : m,
-          ),
+        revokePreview();
+        setMessages((previous) =>
+          previous.filter((message) => message.id !== optimisticMsg.id),
         );
+        setMessageInput(previousInput);
+        toast.error(result.error);
+        return;
+      }
+
+      if (result.data) {
+        revokePreview();
+        const saved = result.data as MessageWithSender;
+        setMessages((previous) => {
+          const withoutOptimistic = previous.filter(
+            (message) => message.id !== optimisticMsg.id && message.id !== saved.id,
+          );
+          return [...withoutOptimistic, saved];
+        });
       }
     },
-    [conversationId, currentUserId],
+    [conversationId, currentUserId, messageInput, setMessageInput, setMessages],
   );
 
   // Edit message
@@ -228,38 +374,60 @@ export function useChatRoom() {
 
       if (result.error) {
         console.error('Failed to edit message:', result.error);
+        toast.error(result.error);
         return false;
       }
 
       if (result.data) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === messageId ? (result.data as MessageWithSender) : m)),
+        const updated = result.data as MessageWithSender;
+        setMessages((previous) =>
+          previous.map((message) =>
+            message.id === messageId ? { ...message, ...updated } : message,
+          ),
         );
       }
 
       setEditingMessage(null);
       return true;
     },
-    [setEditingMessage],
+    [setEditingMessage, setMessages],
   );
 
   // Delete message
-  const deleteMessage = useCallback(async (messageId: string) => {
-    const result = await deleteMessageAction(messageId);
+  const deleteMessage = useCallback(
+    async (messageId: string) => {
+      const result = await deleteMessageAction(messageId);
 
-    if (result.error) {
-      console.error('Failed to delete message:', result.error);
-      return false;
-    }
+      if (result.error) {
+        console.error('Failed to delete message:', result.error);
+        toast.error(result.error);
+        return false;
+      }
 
-    // Update message in list (soft delete - show "deleted" state)
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId ? { ...m, is_deleted: true, content: null } : m,
-      ),
-    );
+      // Update message in list (soft delete - show "deleted" state)
+      setMessages((previous) =>
+        previous.map((message) =>
+          message.id === messageId
+            ? { ...message, is_deleted: true, content: null }
+            : message,
+        ),
+      );
 
-    return true;
+      return true;
+    },
+    [setMessages],
+  );
+
+  // Revoke any remaining optimistic preview URLs on unmount.
+  useEffect(() => {
+    const previewUrls = previewUrlsRef.current;
+
+    return () => {
+      for (const url of previewUrls) {
+        URL.revokeObjectURL(url);
+      }
+      previewUrls.clear();
+    };
   }, []);
 
   // Group messages by sender within 1-minute windows
@@ -297,14 +465,25 @@ export function useChatRoom() {
     return groups;
   }, []);
 
+  const isConversationLoaded =
+    conversationId !== null && loadedConversationId === conversationId;
+  const isLoading = conversationId !== null && !isConversationLoaded;
+  const isFetching = isConversationLoaded && page > currentPage;
+  const visibleMessages = isConversationLoaded ? messages : EMPTY_MESSAGES;
+  const messageGroups = useMemo(
+    () => formatMessages(visibleMessages),
+    [formatMessages, visibleMessages],
+  );
+
   return useMemo(
     () => ({
-      messages,
-      messageGroups: formatMessages(messages),
+      messages: visibleMessages,
+      messageGroups,
       isLoading,
       isFetching,
       totalPages,
       currentPage,
+      hasMore,
       currentUserId,
       sendMessage,
       sendAttachment,
@@ -312,12 +491,13 @@ export function useChatRoom() {
       deleteMessage,
     }),
     [
-      messages,
-      formatMessages,
+      visibleMessages,
+      messageGroups,
       isLoading,
       isFetching,
       totalPages,
       currentPage,
+      hasMore,
       currentUserId,
       sendMessage,
       sendAttachment,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getChatList } from '@/features/chat/actions';
 import { useChatListStore } from '@/store/chat-list-store';
 import { useRealtimeConversations } from '@/hooks/use-realtime';
@@ -9,30 +9,44 @@ import type { ChatListItem } from '@/types/chat';
 export function useChatList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isMounted = useRef(true);
+  const isMountedRef = useRef(true);
+  const requestSequenceRef = useRef(0);
 
   const { chatList, setChatList } = useChatListStore();
 
-  // Fetch chat list
+  // Fetch chat list. State is only updated after the request resolves so the
+  // effect never triggers synchronous cascading renders.
   const fetchChatList = useCallback(async () => {
-    setIsLoading(true);
-    const result = await getChatList();
+    const requestId = ++requestSequenceRef.current;
 
-    if (!isMounted.current) return;
+    try {
+      const result = await getChatList();
 
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setChatList(result.data as ChatListItem[]);
+      if (!isMountedRef.current || requestId !== requestSequenceRef.current) return;
+
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setError(null);
+        setChatList(result.data as ChatListItem[]);
+      }
+    } catch (cause) {
+      if (!isMountedRef.current || requestId !== requestSequenceRef.current) return;
+      setError(cause instanceof Error ? cause.message : 'Failed to load chats');
+    } finally {
+      if (isMountedRef.current && requestId === requestSequenceRef.current) {
+        setIsLoading(false);
+      }
     }
-    setIsLoading(false);
   }, [setChatList]);
 
   useEffect(() => {
-    isMounted.current = true;
-    fetchChatList();
+    isMountedRef.current = true;
+    void fetchChatList();
+
     return () => {
-      isMounted.current = false;
+      isMountedRef.current = false;
+      requestSequenceRef.current += 1;
     };
   }, [fetchChatList]);
 
@@ -46,7 +60,7 @@ export function useChatList() {
   const handleConversationUpdate = useCallback(
     (_conversationId: string) => {
       // Re-fetch the chat list to get updated data
-      fetchChatList();
+      void fetchChatList();
     },
     [fetchChatList],
   );
