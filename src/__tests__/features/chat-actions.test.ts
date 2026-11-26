@@ -1,16 +1,41 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(),
+const fsMocks = vi.hoisted(() => ({
+  mkdir: vi.fn(),
+  readFile: vi.fn(),
+  unlink: vi.fn(),
+  writeFile: vi.fn(),
 }));
 
-import { createClient } from '@/lib/supabase/server';
+vi.mock('@/lib/db/pool', () => ({
+  query: vi.fn(),
+  withTransaction: vi.fn(),
+}));
+
+vi.mock('@/lib/auth/session', () => ({
+  getCurrentUser: vi.fn(),
+}));
+
+vi.mock('@/lib/realtime/bus', () => ({
+  publishRealtimeEvent: vi.fn(),
+}));
+
+vi.mock('node:fs/promises', () => ({
+  ...fsMocks,
+  default: fsMocks,
+}));
+
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { getCurrentUser } from '@/lib/auth/session';
+import { query } from '@/lib/db/pool';
+import { publishRealtimeEvent } from '@/lib/realtime/bus';
 import {
   deleteMessage,
   editMessage,
   getChatList,
   getMessages,
+  getOrCreateConversation,
   markAsRead,
   searchMessages,
   searchUsers,
@@ -18,13 +43,22 @@ import {
   sendMessage,
 } from '@/features/chat/actions';
 import {
+  createAttachmentStoragePath,
+  deleteLocalAttachment,
+  getFileExtension,
+  getUploadDir,
+  readLocalAttachment,
+  resolveLocalAttachmentPath,
+} from '@/features/chat/attachments';
+import {
   MAX_ATTACHMENT_BYTES,
   attachmentFileSchema,
   messageContentSchema,
   paginationSchema,
   searchKeywordSchema,
 } from '@/features/chat/schemas';
-import type { Attachment, Conversation, Message, Profile } from '@/types/database';
+import type { MessageWithSender } from '@/types/chat';
+import type { Attachment, Message, Profile } from '@/types/database';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_ID = '22222222-2222-4222-8222-222222222222';
@@ -34,146 +68,143 @@ const ATTACHMENT_ID = '66666666-6666-4666-8666-666666666666';
 const RANDOM_UUID = '55555555-5555-4555-8555-555555555555';
 const CREATED_AT = '2026-01-01T00:00:00.000Z';
 
-interface MockResult {
-  data?: unknown;
-  error?: { message: string } | null;
-  count?: number | null;
-}
+/**
+ * jsdom's File lacks `arrayBuffer()`. The server action relies on it, so tests
+ * use a File subclass that supplies the bytes it was constructed with.
+ */
+class TestFile extends File {
+  private readonly contents: Uint8Array;
 
-interface MockQuery {
-  table: string;
-  calls: Array<[string, unknown[]]>;
-  builder: any;
-}
-
-interface MockClientOptions {
-  user?: { id: string } | null;
-  tables?: Record<string, MockResult[]>;
-  storage?: {
-    upload?: MockResult;
-    createSignedUrl?: MockResult | MockResult[];
-    remove?: MockResult;
-  };
-}
-
-function normalizeResult(result: MockResult) {
-  return {
-    data: result.data ?? null,
-    error: result.error ?? null,
-    count: result.count ?? null,
-  };
-}
-
-function createQueryBuilder(table: string, result: MockResult, queries: MockQuery[]) {
-  const calls: Array<[string, unknown[]]> = [];
-  const builder: any = {};
-
-  const chainable = [
-    'select',
-    'insert',
-    'update',
-    'delete',
-    'upsert',
-    'eq',
-    'neq',
-    'in',
-    'ilike',
-    'or',
-    'order',
-    'range',
-    'limit',
-    'gt',
-    'gte',
-    'lt',
-  ];
-
-  for (const method of chainable) {
-    builder[method] = vi.fn((...args: unknown[]) => {
-      calls.push([method, args]);
-      return builder;
-    });
+  constructor(text: string, name: string, options: FilePropertyBag) {
+    super([text], name, options);
+    this.contents = new TextEncoder().encode(text);
   }
 
-  builder.single = vi.fn((...args: unknown[]) => {
-    calls.push(['single', args]);
-    return Promise.resolve(normalizeResult(result));
-  });
-
-  builder.maybeSingle = vi.fn((...args: unknown[]) => {
-    calls.push(['maybeSingle', args]);
-    return Promise.resolve(normalizeResult(result));
-  });
-
-  builder.then = (
-    onFulfilled: (value: unknown) => unknown,
-    onRejected: (reason: unknown) => unknown,
-  ) => Promise.resolve(normalizeResult(result)).then(onFulfilled, onRejected);
-
-  queries.push({ table, calls, builder });
-
-  return builder;
+  arrayBuffer(): Promise<ArrayBuffer> {
+    return Promise.resolve(this.contents.slice().buffer);
+  }
 }
 
-function createMockClient(options: MockClientOptions = {}) {
-  const queues = new Map<string, MockResult[]>();
-  for (const [table, results] of Object.entries(options.tables ?? {})) {
-    queues.set(table, [...results]);
-  }
+interface SqlCall {
+  text: string;
+  params: unknown[];
+}
 
-  const queries: MockQuery[] = [];
-  const from = vi.fn((table: string) => {
-    const queue = queues.get(table);
-    if (!queue || queue.length === 0) {
-      throw new Error(`Unexpected query for table "${table}"`);
+type Failure =
+  | 'membership'
+  | 'message-insert'
+  | 'attachment-insert'
+  | 'chat-list'
+  | 'user-search'
+  | 'message-search'
+  | 'rpc';
+
+interface DbOptions {
+  isMember?: boolean;
+  ownedMessage?: { id: string; conversation_id: string; sender_id: string } | null;
+  insertedMessage?: MessageWithSender;
+  updatedMessage?: MessageWithSender | null;
+  page?: MessageWithSender[];
+  totalMessages?: number;
+  chatList?: Array<Record<string, unknown>>;
+  conversationId?: string;
+  participantIds?: string[];
+  users?: Profile[];
+  searchResults?: MessageWithSender[];
+  attachment?: Attachment;
+  fail?: Failure[];
+}
+
+function installDb(options: DbOptions = {}) {
+  const calls: SqlCall[] = [];
+  const failures = new Set(options.fail ?? []);
+
+  const implementation = (sql: string, params: unknown[] = []) => {
+    const text = sql.replace(/\s+/g, ' ').trim();
+    calls.push({ text, params });
+    const includes = (fragment: string) => text.includes(fragment);
+
+    if (includes('SELECT EXISTS (')) {
+      if (failures.has('membership')) throw new Error('membership lookup failed');
+      return { rows: [{ is_member: options.isMember ?? true }] };
     }
 
-    return createQueryBuilder(table, queue.shift()!, queries);
-  });
+    if (includes('get_or_create_private_conversation')) {
+      if (failures.has('rpc')) throw new Error('rpc failed');
+      return { rows: [{ conversation_id: options.conversationId ?? CONV_ID }] };
+    }
 
-  const signedUrlQueue = Array.isArray(options.storage?.createSignedUrl)
-    ? [...options.storage.createSignedUrl]
-    : null;
-  const defaultSignedUrl = Array.isArray(options.storage?.createSignedUrl)
-    ? undefined
-    : (options.storage?.createSignedUrl ?? {
-        data: { signedUrl: 'https://signed/default' },
-        error: null,
-      });
+    if (includes('WITH my_memberships AS (')) {
+      if (failures.has('chat-list')) throw new Error('chat list failed');
+      return { rows: options.chatList ?? [] };
+    }
 
-  const storageApi = {
-    upload: vi
-      .fn()
-      .mockResolvedValue(
-        options.storage?.upload ?? { data: { path: 'uploaded' }, error: null },
-      ),
-    createSignedUrl: vi.fn((_path: string, _expiresIn: number) => {
-      const result = signedUrlQueue?.shift() ?? defaultSignedUrl;
-      return Promise.resolve(result);
-    }),
-    remove: vi
-      .fn()
-      .mockResolvedValue(options.storage?.remove ?? { data: [], error: null }),
-    getPublicUrl: vi.fn(),
+    if (includes('INSERT INTO public.messages')) {
+      if (failures.has('message-insert')) throw new Error('message insert failed');
+      return { rows: options.insertedMessage ? [options.insertedMessage] : [] };
+    }
+
+    if (includes('is_edited = TRUE')) {
+      return { rows: options.updatedMessage ? [options.updatedMessage] : [] };
+    }
+
+    if (includes('SET is_deleted = TRUE, content = NULL')) {
+      return { rows: [] };
+    }
+
+    if (includes('DELETE FROM public.messages')) {
+      return { rows: [] };
+    }
+
+    if (includes('INSERT INTO public.attachments')) {
+      if (failures.has('attachment-insert')) throw new Error('attachment insert failed');
+      return { rows: options.attachment ? [options.attachment] : [] };
+    }
+
+    if (includes('SELECT id, conversation_id, sender_id FROM public.messages')) {
+      return { rows: options.ownedMessage ? [options.ownedMessage] : [] };
+    }
+
+    if (includes('COUNT(*)::int AS count')) {
+      return { rows: [{ count: options.totalMessages ?? 0 }] };
+    }
+
+    if (includes('LIMIT $2 OFFSET $3')) {
+      return { rows: options.page ?? [] };
+    }
+
+    if (includes('m.content ILIKE $2')) {
+      if (failures.has('message-search')) throw new Error('message search failed');
+      return { rows: options.searchResults ?? [] };
+    }
+
+    if (includes('ORDER BY joined_at, id')) {
+      return { rows: (options.participantIds ?? []).map((user_id) => ({ user_id })) };
+    }
+
+    if (includes('UPDATE public.conversation_members')) {
+      return { rows: [] };
+    }
+
+    if (includes('FROM public.users u')) {
+      if (failures.has('user-search')) throw new Error('user search failed');
+      return { rows: options.users ?? [] };
+    }
+
+    throw new Error(`Unexpected query: ${text}`);
   };
 
-  const storage = { from: vi.fn(() => storageApi) };
-  const auth = {
-    getUser: vi.fn().mockResolvedValue({
-      data: { user: options.user ?? null },
-      error: null,
-    }),
-  };
+  vi.mocked(query).mockImplementation(implementation as never);
 
   return {
-    client: { from, storage, auth },
-    queries,
-    storageApi,
+    calls,
+    find(fragment: string) {
+      return calls.find((call) => call.text.includes(fragment));
+    },
   };
 }
 
-function useMockClient(mock: ReturnType<typeof createMockClient>) {
-  vi.mocked(createClient).mockResolvedValue(mock.client as never);
-}
+const randomUUIDMock = vi.fn();
 
 function makeProfile(id: string, name: string, email: string): Profile {
   return {
@@ -204,21 +235,32 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
   };
 }
 
+function makeMessageWithSender(
+  overrides: Partial<MessageWithSender> = {},
+): MessageWithSender {
+  return {
+    ...makeMessage(overrides),
+    sender: makeProfile(USER_ID, 'Arief', 'arief@example.com'),
+    attachments: [],
+    ...overrides,
+  };
+}
+
 function makeAttachment(overrides: Partial<Attachment> = {}): Attachment {
   return {
     id: ATTACHMENT_ID,
     message_id: MESSAGE_ID,
     file_name: 'note.txt',
     file_type: 'text/plain',
-    file_size: 120,
-    file_url: 'https://stored/default',
+    file_size: 5,
+    file_url: `/api/attachments/${ATTACHMENT_ID}`,
     storage_path: `${CONV_ID}/stored.txt`,
     created_at: CREATED_AT,
     ...overrides,
   };
 }
 
-function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
+function makeChatRow(overrides: Record<string, unknown> = {}) {
   return {
     id: CONV_ID,
     type: 'private',
@@ -226,18 +268,25 @@ function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
     avatar_url: null,
     created_at: CREATED_AT,
     updated_at: CREATED_AT,
+    other_user: makeProfile(OTHER_ID, 'Saitama', 'saitama@example.com'),
+    last_message: makeMessage({ sender_id: OTHER_ID, content: 'newest' }),
+    unread_count: 2,
     ...overrides,
   };
 }
 
-function memberResult() {
-  return { data: { conversation_id: CONV_ID }, error: null };
-}
-
 beforeEach(() => {
-  vi.stubGlobal('crypto', {
-    randomUUID: vi.fn(() => RANDOM_UUID),
-  });
+  randomUUIDMock.mockReset().mockReturnValue(RANDOM_UUID);
+  vi.stubGlobal('crypto', { randomUUID: randomUUIDMock });
+
+  vi.mocked(getCurrentUser).mockResolvedValue(
+    makeProfile(USER_ID, 'Arief', 'arief@example.com'),
+  );
+  vi.mocked(publishRealtimeEvent).mockResolvedValue(undefined as never);
+  vi.mocked(mkdir).mockResolvedValue(undefined as never);
+  vi.mocked(writeFile).mockResolvedValue(undefined as never);
+  vi.mocked(unlink).mockResolvedValue(undefined as never);
+  vi.mocked(readFile).mockResolvedValue(Buffer.from('hello') as never);
 });
 
 afterEach(() => {
@@ -282,80 +331,123 @@ describe('chat schemas', () => {
   });
 });
 
+describe('local attachment helpers', () => {
+  it('derives safe extensions and uuid-based storage paths', () => {
+    expect(getFileExtension('report.TXT', 'application/octet-stream')).toBe('txt');
+    expect(getFileExtension('archive.verylongext', 'text/plain')).toBe('txt');
+    expect(getFileExtension('no-extension', 'image/png')).toBe('png');
+    expect(getFileExtension('no-extension', 'application/x-unknown')).toBe('bin');
+
+    expect(createAttachmentStoragePath(CONV_ID, 'report.txt', 'text/plain')).toBe(
+      `${CONV_ID}/${RANDOM_UUID}.txt`,
+    );
+  });
+
+  it('rejects paths that escape the upload directory', () => {
+    expect(resolveLocalAttachmentPath('')).toBeNull();
+    expect(resolveLocalAttachmentPath('../secret.txt')).toBeNull();
+    expect(resolveLocalAttachmentPath(`${CONV_ID}/../../secret.txt`)).toBeNull();
+    expect(resolveLocalAttachmentPath(`${CONV_ID}/file.txt`)).toBe(
+      path.resolve(getUploadDir(), CONV_ID, 'file.txt'),
+    );
+  });
+
+  it('never reads a traversing storage path', async () => {
+    await expect(readLocalAttachment('../secret.txt')).rejects.toThrow(
+      'Invalid attachment path',
+    );
+    expect(readFile).not.toHaveBeenCalled();
+  });
+
+  it('ignores missing files when rolling back', async () => {
+    const missing = Object.assign(new Error('missing'), { code: 'ENOENT' });
+    vi.mocked(unlink).mockRejectedValueOnce(missing as never);
+
+    await expect(deleteLocalAttachment(`${CONV_ID}/gone.txt`)).resolves.toBeUndefined();
+  });
+
+  it('propagates real rollback failures', async () => {
+    vi.mocked(unlink).mockRejectedValue(new Error('permission denied') as never);
+
+    await expect(deleteLocalAttachment(`${CONV_ID}/locked.txt`)).rejects.toThrow(
+      'permission denied',
+    );
+  });
+});
+
 describe('sendMessage', () => {
   it('rejects unauthenticated users', async () => {
-    const mock = createMockClient({ user: null });
-    useMockClient(mock);
+    vi.mocked(getCurrentUser).mockResolvedValue(null);
+    const db = installDb();
 
     await expect(sendMessage(CONV_ID, 'hello')).resolves.toEqual({
       error: 'Not authenticated',
     });
-    expect(mock.client.from).not.toHaveBeenCalled();
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it('rejects invalid conversation ids before querying', async () => {
+    const db = installDb();
+
+    await expect(sendMessage('not-a-uuid', 'hello')).resolves.toEqual({
+      error: 'Invalid identifier',
+    });
+    expect(db.calls).toHaveLength(0);
   });
 
   it('rejects empty content before querying', async () => {
-    const mock = createMockClient({ user: { id: USER_ID } });
-    useMockClient(mock);
+    const db = installDb();
 
     await expect(sendMessage(CONV_ID, '   ')).resolves.toEqual({
       error: 'Message cannot be empty',
     });
-    expect(mock.client.from).not.toHaveBeenCalled();
+    expect(db.calls).toHaveLength(0);
   });
 
-  it('checks membership and inserts a trimmed message', async () => {
-    const message = makeMessage({ content: 'hello' });
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [memberResult()],
-        messages: [
-          {
-            data: {
-              ...message,
-              sender: makeProfile(USER_ID, 'Arief', 'arief@example.com'),
-            },
-            error: null,
-          },
-        ],
-      },
-    });
-    useMockClient(mock);
-
-    const result = await sendMessage(CONV_ID, '  hello  ');
-
-    expect('data' in result).toBe(true);
-    const messagesQuery = mock.queries.find((query) => query.table === 'messages');
-    expect(messagesQuery).toBeDefined();
-
-    const insertCall = messagesQuery!.calls.find(([method]) => method === 'insert');
-    expect(insertCall?.[1][0]).toMatchObject({
-      conversation_id: CONV_ID,
-      sender_id: USER_ID,
-      content: 'hello',
-      type: 'text',
-    });
-  });
-
-  it('rejects non-members', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [{ data: null, error: null }],
-      },
-    });
-    useMockClient(mock);
+  it('rejects non-members without inserting', async () => {
+    const db = installDb({ isMember: false });
 
     await expect(sendMessage(CONV_ID, 'hello')).resolves.toEqual({
       error: 'You are not a member of this conversation',
+    });
+    expect(db.find('INSERT INTO public.messages')).toBeUndefined();
+  });
+
+  it('checks membership, inserts a parameterized message and publishes it', async () => {
+    const message = makeMessageWithSender({ content: 'hello' });
+    const db = installDb({ insertedMessage: message });
+
+    const result = await sendMessage(CONV_ID, '  hello  ');
+
+    expect(result).toEqual({ data: message });
+
+    const membershipCall = db.find('SELECT EXISTS (');
+    expect(membershipCall?.params).toEqual([CONV_ID, USER_ID]);
+
+    const insertCall = db.find('INSERT INTO public.messages');
+    expect(insertCall?.params).toEqual([CONV_ID, USER_ID, 'hello', 'text']);
+    expect(insertCall?.text).not.toContain('hello');
+    expect(insertCall?.text).toContain('$1');
+
+    expect(publishRealtimeEvent).toHaveBeenCalledWith({
+      type: 'message:insert',
+      conversationId: CONV_ID,
+      message,
+    });
+  });
+
+  it('returns database errors without leaking SQL', async () => {
+    installDb({ fail: ['message-insert'] });
+
+    await expect(sendMessage(CONV_ID, 'hello')).resolves.toEqual({
+      error: 'message insert failed',
     });
   });
 });
 
 describe('sendAttachment', () => {
-  it('rejects files over 2MB before touching storage', async () => {
-    const mock = createMockClient({ user: { id: USER_ID } });
-    useMockClient(mock);
+  it('rejects files over 2MB before writing to disk', async () => {
+    installDb();
 
     const formData = new FormData();
     formData.append(
@@ -368,552 +460,491 @@ describe('sendAttachment', () => {
     await expect(sendAttachment(CONV_ID, formData)).resolves.toEqual({
       error: 'File must be 2MB or smaller',
     });
-    expect(mock.storageApi.upload).not.toHaveBeenCalled();
+    expect(writeFile).not.toHaveBeenCalled();
   });
 
-  it('uploads, inserts the message and returns the real attachment row', async () => {
-    const file = new File(['hello'], 'note.txt', { type: 'text/plain' });
-    const message = makeMessage({ content: 'A caption', type: 'file' });
-    const attachment = makeAttachment({
-      file_url: 'https://signed/default',
-    });
+  it('rejects non-members before writing to disk', async () => {
+    installDb({ isMember: false });
 
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [memberResult()],
-        messages: [
-          {
-            data: {
-              ...message,
-              sender: makeProfile(USER_ID, 'Arief', 'arief@example.com'),
-            },
-            error: null,
-          },
-        ],
-        attachments: [{ data: attachment, error: null }],
-      },
+    const formData = new FormData();
+    formData.append('file', new TestFile('hello', 'note.txt', { type: 'text/plain' }));
+
+    await expect(sendAttachment(CONV_ID, formData)).resolves.toEqual({
+      error: 'You are not a member of this conversation',
     });
-    useMockClient(mock);
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('stores the file locally and returns the attachment with a route URL', async () => {
+    const file = new TestFile('hello', 'note.txt', { type: 'text/plain' });
+    const message = makeMessageWithSender({ content: 'A caption', type: 'file' });
+    const attachment = makeAttachment();
+    randomUUIDMock.mockReturnValueOnce(RANDOM_UUID).mockReturnValueOnce(ATTACHMENT_ID);
+
+    const db = installDb({ insertedMessage: message, attachment });
 
     const formData = new FormData();
     formData.append('file', file);
 
     const result = await sendAttachment(CONV_ID, formData, 'A caption');
 
-    expect('data' in result).toBe(true);
     if (!('data' in result) || !result.data) {
       throw new Error('Expected attachment data');
     }
 
     const storagePath = `${CONV_ID}/${RANDOM_UUID}.txt`;
-    expect(mock.storageApi.upload).toHaveBeenCalledWith(storagePath, file, {
-      contentType: 'text/plain',
-      upsert: false,
-    });
-    expect(mock.storageApi.createSignedUrl).toHaveBeenCalledWith(storagePath, 3600);
-    expect(result.data.attachments).toEqual([attachment]);
+    const absolutePath = path.resolve(getUploadDir(), storagePath);
 
-    const attachmentQuery = mock.queries.find((query) => query.table === 'attachments');
-    const insertCall = attachmentQuery!.calls.find(([method]) => method === 'insert');
-    expect(insertCall?.[1][0]).toMatchObject({
-      message_id: MESSAGE_ID,
-      file_name: 'note.txt',
-      file_type: 'text/plain',
-      file_size: file.size,
-      file_url: 'https://signed/default',
-      storage_path: storagePath,
+    expect(mkdir).toHaveBeenCalledWith(path.dirname(absolutePath), {
+      recursive: true,
+    });
+    const writeCall = vi.mocked(writeFile).mock.calls[0];
+    expect(writeCall?.[0]).toBe(absolutePath);
+    expect(Buffer.isBuffer(writeCall?.[1])).toBe(true);
+    expect(String(writeCall?.[1])).toBe('hello');
+
+    const insertCall = db.find('INSERT INTO public.messages');
+    expect(insertCall?.params).toEqual([CONV_ID, USER_ID, 'A caption', 'file']);
+
+    const attachmentCall = db.find('INSERT INTO public.attachments');
+    expect(attachmentCall?.params).toEqual([
+      ATTACHMENT_ID,
+      MESSAGE_ID,
+      'note.txt',
+      'text/plain',
+      file.size,
+      `/api/attachments/${ATTACHMENT_ID}`,
+      storagePath,
+    ]);
+
+    expect(attachmentCall?.text).not.toContain('note.txt');
+    expect(result.data.attachments).toEqual([attachment]);
+    expect(publishRealtimeEvent).toHaveBeenCalledWith({
+      type: 'message:insert',
+      conversationId: CONV_ID,
+      message: { ...message, attachments: [attachment] },
     });
   });
 
-  it('rolls back storage and the message when the attachment row fails', async () => {
-    const file = new File(['hello'], 'note.txt', { type: 'text/plain' });
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [memberResult()],
-        messages: [
-          {
-            data: {
-              ...makeMessage({ content: 'note.txt' }),
-              sender: makeProfile(USER_ID, 'Arief', 'arief@example.com'),
-            },
-            error: null,
-          },
-          { data: null, error: null },
-        ],
-        attachments: [{ data: null, error: { message: 'insert failed' } }],
-      },
+  it('rolls back the file and message when the attachment row fails', async () => {
+    const file = new TestFile('hello', 'note.txt', { type: 'text/plain' });
+    const message = makeMessageWithSender({ content: 'note.txt' });
+    randomUUIDMock.mockReturnValueOnce(RANDOM_UUID).mockReturnValueOnce(ATTACHMENT_ID);
+
+    const db = installDb({
+      insertedMessage: message,
+      fail: ['attachment-insert'],
     });
-    useMockClient(mock);
 
     const formData = new FormData();
     formData.append('file', file);
 
     await expect(sendAttachment(CONV_ID, formData)).resolves.toEqual({
-      error: 'insert failed',
+      error: 'attachment insert failed',
     });
 
     const storagePath = `${CONV_ID}/${RANDOM_UUID}.txt`;
-    expect(mock.storageApi.remove).toHaveBeenCalledWith([storagePath]);
+    const absolutePath = path.resolve(getUploadDir(), storagePath);
 
-    const messagesQueries = mock.queries.filter((query) => query.table === 'messages');
-    const rollbackQuery = messagesQueries[messagesQueries.length - 1];
-    expect(rollbackQuery.calls.some(([method]) => method === 'delete')).toBe(true);
-    expect(rollbackQuery.calls).toContainEqual(['eq', ['id', MESSAGE_ID]]);
+    expect(unlink).toHaveBeenCalledWith(absolutePath);
+    expect(db.find('DELETE FROM public.messages')?.params).toEqual([MESSAGE_ID]);
+    expect(publishRealtimeEvent).not.toHaveBeenCalled();
+  });
+
+  it('removes the written file when the message insert fails', async () => {
+    const file = new TestFile('hello', 'note.txt', { type: 'text/plain' });
+    randomUUIDMock.mockReturnValueOnce(RANDOM_UUID);
+
+    const db = installDb({ fail: ['message-insert'] });
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    await expect(sendAttachment(CONV_ID, formData)).resolves.toEqual({
+      error: 'message insert failed',
+    });
+
+    const storagePath = `${CONV_ID}/${RANDOM_UUID}.txt`;
+    const absolutePath = path.resolve(getUploadDir(), storagePath);
+
+    expect(unlink).toHaveBeenCalledWith(absolutePath);
+    expect(db.find('INSERT INTO public.attachments')).toBeUndefined();
   });
 });
 
 describe('getMessages', () => {
   it('requires authentication', async () => {
-    const mock = createMockClient({ user: null });
-    useMockClient(mock);
+    vi.mocked(getCurrentUser).mockResolvedValue(null);
+    const db = installDb();
 
     const result = await getMessages(CONV_ID, 1);
     expect(result.error).toBe('Not authenticated');
-    expect(mock.client.from).not.toHaveBeenCalled();
+    expect(db.calls).toHaveLength(0);
   });
 
-  it('embeds attachments and returns signed URLs', async () => {
-    const attachment = makeAttachment();
-    const message = makeMessage();
+  it('rejects invalid conversation ids', async () => {
+    const db = installDb();
 
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [memberResult()],
-        messages: [
-          {
-            data: [
-              {
-                ...message,
-                sender: makeProfile(USER_ID, 'Arief', 'arief@example.com'),
-                attachments: [attachment],
-              },
-            ],
-            error: null,
-            count: 1,
-          },
-        ],
-      },
+    const result = await getMessages('nope', 1);
+    expect(result.error).toBe('Invalid identifier');
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it('rejects non-members', async () => {
+    installDb({ isMember: false });
+
+    const result = await getMessages(CONV_ID, 1);
+    expect(result.error).toBe('You are not a member of this conversation');
+    expect(result.data).toEqual([]);
+  });
+
+  it('returns a page of messages oldest first with totals', async () => {
+    const newest = makeMessageWithSender({
+      id: '77777777-7777-4777-8777-777777777777',
+      content: 'newest',
+      created_at: '2026-01-01T00:10:00.000Z',
     });
-    useMockClient(mock);
+    const oldest = makeMessageWithSender({ content: 'oldest' });
+    const db = installDb({ page: [newest, oldest], totalMessages: 2 });
 
     const result = await getMessages(CONV_ID, 1);
 
     expect(result.error).toBeUndefined();
     expect(result.totalPages).toBe(1);
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].attachments?.[0].file_url).toBe('https://signed/default');
-    expect(mock.storageApi.createSignedUrl).toHaveBeenCalledWith(
-      attachment.storage_path,
-      3600,
-    );
+    expect(result.totalMessages).toBe(2);
+    expect(result.data.map((message) => message.content)).toEqual(['oldest', 'newest']);
 
-    const messagesQuery = mock.queries.find((query) => query.table === 'messages');
-    const selectCall = messagesQuery!.calls.find(([method]) => method === 'select');
-    expect(String(selectCall?.[1][0])).toContain('attachments(*)');
+    expect(db.find('LIMIT $2 OFFSET $3')?.params).toEqual([CONV_ID, 30, 0]);
   });
 
-  it('rejects non-members', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [{ data: null, error: null }],
-      },
-    });
-    useMockClient(mock);
+  it('uses the page offset for later pages', async () => {
+    const db = installDb({ page: [], totalMessages: 65 });
 
-    const result = await getMessages(CONV_ID, 1);
-    expect(result.error).toBe('You are not a member of this conversation');
+    const result = await getMessages(CONV_ID, 2);
+
+    expect(result.totalPages).toBe(3);
+    expect(db.find('LIMIT $2 OFFSET $3')?.params).toEqual([CONV_ID, 30, 30]);
   });
 });
 
 describe('editMessage', () => {
-  it('updates only an owned message', async () => {
-    const updated = makeMessage({ content: 'updated', is_edited: true });
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        messages: [
-          {
-            data: {
-              id: MESSAGE_ID,
-              conversation_id: CONV_ID,
-              sender_id: USER_ID,
-            },
-            error: null,
-          },
-          {
-            data: {
-              ...updated,
-              sender: makeProfile(USER_ID, 'Arief', 'arief@example.com'),
-            },
-            error: null,
-          },
-        ],
-        conversation_members: [memberResult()],
+  it('updates only an owned message and publishes the update', async () => {
+    const updated = makeMessageWithSender({ content: 'updated', is_edited: true });
+    const db = installDb({
+      ownedMessage: {
+        id: MESSAGE_ID,
+        conversation_id: CONV_ID,
+        sender_id: USER_ID,
       },
+      updatedMessage: updated,
     });
-    useMockClient(mock);
 
     const result = await editMessage(MESSAGE_ID, '  updated  ');
 
-    expect('data' in result).toBe(true);
-    const updateQuery = mock.queries.filter((query) => query.table === 'messages')[1];
-    const updateCall = updateQuery.calls.find(([method]) => method === 'update');
-    expect(updateCall?.[1][0]).toMatchObject({
-      content: 'updated',
-      is_edited: true,
+    expect(result).toEqual({ data: updated });
+
+    const updateCall = db.find('is_edited = TRUE');
+    expect(updateCall?.params).toEqual([MESSAGE_ID, USER_ID, 'updated']);
+
+    expect(publishRealtimeEvent).toHaveBeenCalledWith({
+      type: 'message:update',
+      conversationId: CONV_ID,
+      message: updated,
     });
   });
 
   it('rejects messages owned by someone else', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        messages: [
-          {
-            data: {
-              id: MESSAGE_ID,
-              conversation_id: CONV_ID,
-              sender_id: OTHER_ID,
-            },
-            error: null,
-          },
-        ],
+    const db = installDb({
+      ownedMessage: {
+        id: MESSAGE_ID,
+        conversation_id: CONV_ID,
+        sender_id: OTHER_ID,
       },
     });
-    useMockClient(mock);
 
     await expect(editMessage(MESSAGE_ID, 'nope')).resolves.toEqual({
       error: 'You can only modify your own messages',
+    });
+    expect(db.find('is_edited = TRUE')).toBeUndefined();
+    expect(publishRealtimeEvent).not.toHaveBeenCalled();
+  });
+
+  it('returns not found for missing messages', async () => {
+    installDb({ ownedMessage: null });
+
+    await expect(editMessage(MESSAGE_ID, 'nope')).resolves.toEqual({
+      error: 'Message not found',
     });
   });
 });
 
 describe('deleteMessage', () => {
-  it('soft-deletes an owned message', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        messages: [
-          {
-            data: {
-              id: MESSAGE_ID,
-              conversation_id: CONV_ID,
-              sender_id: USER_ID,
-            },
-            error: null,
-          },
-          { data: null, error: null },
-        ],
-        conversation_members: [memberResult()],
+  it('soft-deletes an owned message and publishes the deletion', async () => {
+    const db = installDb({
+      ownedMessage: {
+        id: MESSAGE_ID,
+        conversation_id: CONV_ID,
+        sender_id: USER_ID,
       },
     });
-    useMockClient(mock);
 
     await expect(deleteMessage(MESSAGE_ID)).resolves.toEqual({ success: true });
 
-    const updateQuery = mock.queries.filter((query) => query.table === 'messages')[1];
-    const updateCall = updateQuery.calls.find(([method]) => method === 'update');
-    expect(updateCall?.[1][0]).toMatchObject({
-      is_deleted: true,
-      content: null,
+    expect(db.find('SET is_deleted = TRUE, content = NULL')?.params).toEqual([
+      MESSAGE_ID,
+      USER_ID,
+    ]);
+    expect(publishRealtimeEvent).toHaveBeenCalledWith({
+      type: 'message:delete',
+      conversationId: CONV_ID,
+      messageId: MESSAGE_ID,
     });
+  });
+
+  it('rejects messages owned by someone else', async () => {
+    installDb({
+      ownedMessage: {
+        id: MESSAGE_ID,
+        conversation_id: CONV_ID,
+        sender_id: OTHER_ID,
+      },
+    });
+
+    await expect(deleteMessage(MESSAGE_ID)).resolves.toEqual({
+      error: 'You can only modify your own messages',
+    });
+    expect(publishRealtimeEvent).not.toHaveBeenCalled();
   });
 });
 
 describe('getChatList', () => {
-  it('batch-loads members, messages and unread counts without N+1 queries', async () => {
-    const me = makeProfile(USER_ID, 'Arief', 'arief@example.com');
-    const other = makeProfile(OTHER_ID, 'Saitama', 'saitama@example.com');
-    const conversation = makeConversation();
-
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [
-          {
-            data: [
-              {
-                conversation_id: CONV_ID,
-                last_read_at: '2026-01-01T00:00:00.000Z',
-                joined_at: '2025-12-01T00:00:00.000Z',
-              },
-            ],
-            error: null,
-          },
-          {
-            data: [
-              {
-                conversation_id: CONV_ID,
-                user_id: USER_ID,
-                last_read_at: '2026-01-01T00:00:00.000Z',
-                profiles: me,
-              },
-              {
-                conversation_id: CONV_ID,
-                user_id: OTHER_ID,
-                last_read_at: null,
-                profiles: other,
-              },
-            ],
-            error: null,
-          },
-        ],
-        conversations: [{ data: [conversation], error: null }],
-        messages: [
-          {
-            data: [
-              makeMessage({
-                id: '77777777-7777-4777-8777-777777777777',
-                sender_id: OTHER_ID,
-                content: 'newest',
-                created_at: '2026-01-01T00:20:00.000Z',
-              }),
-              makeMessage({
-                id: '88888888-8888-4888-8888-888888888888',
-                sender_id: OTHER_ID,
-                content: 'unread too',
-                created_at: '2026-01-01T00:10:00.000Z',
-              }),
-              makeMessage({
-                id: '99999999-9999-4999-8999-999999999999',
-                sender_id: USER_ID,
-                content: 'mine',
-                created_at: '2026-01-01T00:05:00.000Z',
-              }),
-              makeMessage({
-                id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-                sender_id: OTHER_ID,
-                content: 'old',
-                created_at: '2025-12-31T23:00:00.000Z',
-              }),
-            ],
-            error: null,
-          },
-        ],
-      },
+  it('maps the single aggregate query into chat list items', async () => {
+    const db = installDb({
+      chatList: [
+        makeChatRow({ unread_count: '2' }),
+        makeChatRow({
+          id: '99999999-9999-4999-8999-999999999999',
+          type: 'group',
+          name: 'Solo',
+          other_user: null,
+          last_message: null,
+          unread_count: 0,
+        }),
+      ],
     });
-    useMockClient(mock);
 
     const result = await getChatList();
 
     expect(result.error).toBeUndefined();
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].otherUser?.id).toBe(OTHER_ID);
-    expect(result.data[0].lastMessage?.content).toBe('newest');
-    expect(result.data[0].unreadCount).toBe(2);
+    expect(result.data).toHaveLength(2);
+    expect(result.data[0]).toMatchObject({
+      otherUser: { id: OTHER_ID },
+      lastMessage: { content: 'newest' },
+      unreadCount: 2,
+    });
+    expect(result.data[0].conversation.id).toBe(CONV_ID);
+    expect(result.data[1]).toMatchObject({
+      otherUser: null,
+      lastMessage: null,
+      unreadCount: 0,
+    });
 
-    expect(mock.client.from).toHaveBeenCalledTimes(4);
-    expect(
-      mock.client.from.mock.calls.filter(([table]) => table === 'messages'),
-    ).toHaveLength(1);
+    expect(db.calls).toHaveLength(1);
+    expect(db.find('WITH my_memberships AS (')?.params).toEqual([USER_ID]);
   });
 
-  it('keeps otherUser null for conversations without another member', async () => {
-    const me = makeProfile(USER_ID, 'Arief', 'arief@example.com');
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [
-          {
-            data: [
-              {
-                conversation_id: CONV_ID,
-                last_read_at: null,
-                joined_at: CREATED_AT,
-              },
-            ],
-            error: null,
-          },
-          {
-            data: [
-              {
-                conversation_id: CONV_ID,
-                user_id: USER_ID,
-                last_read_at: null,
-                profiles: me,
-              },
-            ],
-            error: null,
-          },
-        ],
-        conversations: [
-          { data: [makeConversation({ type: 'group', name: 'Solo' })], error: null },
-        ],
-        messages: [{ data: [], error: null }],
-      },
+  it('never issues a query per conversation', async () => {
+    const db = installDb({
+      chatList: [
+        makeChatRow(),
+        makeChatRow({ id: '99999999-9999-4999-8999-999999999999' }),
+      ],
     });
-    useMockClient(mock);
 
     const result = await getChatList();
 
-    expect(result.data[0].otherUser).toBeNull();
-    expect(result.data[0].lastMessage).toBeNull();
-    expect(result.data[0].unreadCount).toBe(0);
+    expect(result.data).toHaveLength(2);
+    expect(db.calls).toHaveLength(1);
   });
 
-  it('returns an error when a batched query fails', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [
-          {
-            data: [
-              { conversation_id: CONV_ID, last_read_at: null, joined_at: CREATED_AT },
-            ],
-            error: null,
-          },
-        ],
-        conversations: [{ data: null, error: { message: 'db down' } }],
-      },
-    });
-    useMockClient(mock);
+  it('returns empty data for users without conversations', async () => {
+    installDb({ chatList: [] });
 
-    const result = await getChatList();
-    expect(result).toEqual({ error: 'db down', data: [] });
+    await expect(getChatList()).resolves.toEqual({ data: [] });
+  });
+
+  it('returns aggregate query errors', async () => {
+    installDb({ fail: ['chat-list'] });
+
+    await expect(getChatList()).resolves.toEqual({
+      error: 'chat list failed',
+      data: [],
+    });
   });
 });
 
 describe('markAsRead', () => {
   it('checks membership before updating last_read_at', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [memberResult(), { data: null, error: null }],
-      },
-    });
-    useMockClient(mock);
+    const db = installDb();
 
     await expect(markAsRead(CONV_ID)).resolves.toEqual({ success: true });
 
-    const updateQuery = mock.queries.filter(
-      (query) => query.table === 'conversation_members',
-    )[1];
-    const updateCall = updateQuery.calls.find(([method]) => method === 'update');
-    expect(updateCall?.[1][0]).toHaveProperty('last_read_at');
-    expect(updateQuery.calls).toContainEqual(['eq', ['conversation_id', CONV_ID]]);
-    expect(updateQuery.calls).toContainEqual(['eq', ['user_id', USER_ID]]);
+    expect(db.find('SELECT EXISTS (')?.params).toEqual([CONV_ID, USER_ID]);
+    expect(db.find('UPDATE public.conversation_members')?.params).toEqual([
+      CONV_ID,
+      USER_ID,
+    ]);
   });
 
   it('does not update when the user is not a member', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [{ data: null, error: null }],
-      },
-    });
-    useMockClient(mock);
+    const db = installDb({ isMember: false });
 
     await expect(markAsRead(CONV_ID)).resolves.toEqual({
       error: 'You are not a member of this conversation',
     });
-    expect(mock.client.from).toHaveBeenCalledTimes(1);
+    expect(db.find('UPDATE public.conversation_members')).toBeUndefined();
+  });
+
+  it('rejects invalid conversation ids', async () => {
+    const db = installDb();
+
+    await expect(markAsRead('nope')).resolves.toEqual({
+      error: 'Invalid identifier',
+    });
+    expect(db.calls).toHaveLength(0);
+  });
+});
+
+describe('getOrCreateConversation', () => {
+  it('rejects conversations with yourself', async () => {
+    const db = installDb();
+
+    await expect(getOrCreateConversation(USER_ID)).resolves.toEqual({
+      error: 'Cannot create a conversation with yourself',
+    });
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it('calls the SQL function and publishes a conversation update', async () => {
+    const db = installDb({ participantIds: [USER_ID, OTHER_ID] });
+
+    await expect(getOrCreateConversation(OTHER_ID)).resolves.toEqual({
+      conversationId: CONV_ID,
+    });
+
+    expect(db.find('get_or_create_private_conversation')?.params).toEqual([
+      USER_ID,
+      OTHER_ID,
+    ]);
+    expect(db.find('ORDER BY joined_at, id')?.params).toEqual([CONV_ID]);
+    expect(publishRealtimeEvent).toHaveBeenCalledWith({
+      type: 'conversation:update',
+      conversationId: CONV_ID,
+      participantIds: [USER_ID, OTHER_ID],
+    });
+  });
+
+  it('returns SQL function errors', async () => {
+    installDb({ fail: ['rpc'] });
+
+    await expect(getOrCreateConversation(OTHER_ID)).resolves.toEqual({
+      error: 'rpc failed',
+    });
+    expect(publishRealtimeEvent).not.toHaveBeenCalled();
   });
 });
 
 describe('searchUsers', () => {
-  it('escapes wildcards, strips filter syntax and excludes the current user', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        profiles: [
-          {
-            data: [makeProfile(OTHER_ID, 'Saitama', 'saitama@example.com')],
-            error: null,
-          },
-        ],
-      },
+  it('binds an escaped ILIKE pattern without interpolating the term', async () => {
+    const db = installDb({
+      users: [makeProfile(OTHER_ID, 'Saitama', 'saitama@example.com')],
     });
-    useMockClient(mock);
 
     const result = await searchUsers('a%b_c,(d)');
 
     expect(result.error).toBeUndefined();
     expect(result.data).toHaveLength(1);
 
-    const profileQuery = mock.queries.find((query) => query.table === 'profiles');
-    expect(profileQuery?.calls).toContainEqual(['neq', ['id', USER_ID]]);
-
-    const orCall = profileQuery?.calls.find(([method]) => method === 'or');
-    const filter = String(orCall?.[1][0]);
-    expect(filter).toContain('a\\%b\\_c d');
-    expect(filter).not.toContain('(');
-    expect(filter).not.toContain(')');
+    const searchCall = db.find('FROM public.users u');
+    expect(searchCall?.params).toEqual([USER_ID, '%a\\%b\\_c d%']);
+    expect(searchCall?.text).not.toContain('a%b');
+    expect(searchCall?.text).toContain('$2');
   });
 
   it('returns query errors', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        profiles: [{ data: null, error: { message: 'search failed' } }],
-      },
-    });
-    useMockClient(mock);
+    installDb({ fail: ['user-search'] });
 
     await expect(searchUsers('saitama')).resolves.toEqual({
-      error: 'search failed',
+      error: 'user search failed',
       data: [],
     });
   });
 
   it('skips short keywords', async () => {
-    const mock = createMockClient({ user: { id: USER_ID } });
-    useMockClient(mock);
+    const db = installDb();
 
     await expect(searchUsers('a')).resolves.toEqual({ data: [] });
-    expect(mock.client.from).not.toHaveBeenCalled();
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it('skips terms that sanitize below the minimum length', async () => {
+    const db = installDb();
+
+    await expect(searchUsers('(a)')).resolves.toEqual({ data: [] });
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it('requires authentication', async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(null);
+    installDb();
+
+    await expect(searchUsers('saitama')).resolves.toEqual({
+      error: 'Not authenticated',
+      data: [],
+    });
   });
 });
 
 describe('searchMessages', () => {
-  it('escapes wildcards and filters deleted messages', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [{ data: [{ conversation_id: CONV_ID }], error: null }],
-        messages: [{ data: [makeMessage()], error: null }],
-      },
-    });
-    useMockClient(mock);
+  it('binds an escaped ILIKE pattern and scopes to memberships in SQL', async () => {
+    const message = makeMessageWithSender({ content: '50% off' });
+    const db = installDb({ searchResults: [message] });
 
     const result = await searchMessages('50%_off');
 
     expect(result.error).toBeUndefined();
-    expect(result.data).toHaveLength(1);
+    expect(result.data).toEqual([message]);
 
-    const messagesQuery = mock.queries.find((query) => query.table === 'messages');
-    expect(messagesQuery?.calls).toContainEqual(['eq', ['is_deleted', false]]);
-    expect(messagesQuery?.calls).toContainEqual(['ilike', ['content', '%50\\%\\_off%']]);
+    const searchCall = db.find('m.content ILIKE $2');
+    expect(searchCall?.params).toEqual([USER_ID, '%50\\%\\_off%']);
+    expect(searchCall?.text).not.toContain('50%');
+    expect(searchCall?.text).toContain('public.conversation_members');
+    expect(searchCall?.text).toContain('m.is_deleted = FALSE');
   });
 
-  it('returns membership lookup errors', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [{ data: null, error: { message: 'membership failed' } }],
-      },
-    });
-    useMockClient(mock);
+  it('returns query errors', async () => {
+    installDb({ fail: ['message-search'] });
 
     await expect(searchMessages('saitama')).resolves.toEqual({
-      error: 'membership failed',
+      error: 'message search failed',
       data: [],
     });
   });
 
-  it('returns empty results when the user has no conversations', async () => {
-    const mock = createMockClient({
-      user: { id: USER_ID },
-      tables: {
-        conversation_members: [{ data: [], error: null }],
-      },
-    });
-    useMockClient(mock);
+  it('skips short keywords', async () => {
+    const db = installDb();
 
-    await expect(searchMessages('saitama')).resolves.toEqual({ data: [] });
-    expect(mock.client.from).toHaveBeenCalledTimes(1);
+    await expect(searchMessages('a')).resolves.toEqual({ data: [] });
+    expect(db.calls).toHaveLength(0);
+  });
+
+  it('requires authentication', async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(null);
+    installDb();
+
+    await expect(searchMessages('saitama')).resolves.toEqual({
+      error: 'Not authenticated',
+      data: [],
+    });
   });
 });

@@ -119,8 +119,9 @@ export function firstZodError(error: z.ZodError): string {
 }
 
 /**
- * PostgREST filter strings use commas and parentheses as syntax. Strip those
- * characters from user-provided terms before embedding them into a filter.
+ * Normalize user-provided search terms. Commas and parentheses are stripped so
+ * a single term can never be reinterpreted as query syntax, and whitespace is
+ * collapsed before the value is bound as a parameter.
  */
 export function sanitizeSearchTerm(term: string): string {
   return term.replace(/[(),]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -131,7 +132,7 @@ export function escapeLikeTerm(term: string): string {
   return term.replace(/\\/g, '\\\\').replace(/[%_*]/g, (character) => `\\${character}`);
 }
 
-/** Build a safe `%term%` ILIKE pattern. */
+/** Build a safe `%term%` ILIKE pattern, always passed as a bound parameter. */
 export function toIlikePattern(term: string): string {
   return `%${escapeLikeTerm(term)}%`;
 }
