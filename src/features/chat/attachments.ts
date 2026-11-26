@@ -1,8 +1,6 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Attachment, Database } from '@/types/database';
-import { ATTACHMENT_URL_EXPIRY_SECONDS } from './schemas';
-
-export const ATTACHMENTS_BUCKET = 'attachments';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import type { Attachment } from '@/types/database';
 
 const MIME_EXTENSIONS: Record<string, string> = {
   'application/pdf': 'pdf',
@@ -21,6 +19,11 @@ const MIME_EXTENSIONS: Record<string, string> = {
   'image/heic': 'heic',
   'image/heif': 'heif',
 };
+
+/** Root directory for locally stored uploads. Read lazily so tests can override it. */
+export function getUploadDir(): string {
+  return process.env.UPLOAD_DIR || './uploads';
+}
 
 /** Prefer the original extension, but never trust it as a path fragment. */
 export function getFileExtension(fileName: string, mimeType: string): string {
@@ -46,43 +49,90 @@ export function createAttachmentStoragePath(
   return `${conversationId}/${crypto.randomUUID()}.${getFileExtension(fileName, mimeType)}`;
 }
 
-export async function createAttachmentSignedUrl(
-  supabase: SupabaseClient<Database>,
+/** Public (authenticated) URL used to stream an attachment through the app. */
+export function getAttachmentUrl(attachmentId: string): string {
+  return `/api/attachments/${attachmentId}`;
+}
+
+/**
+ * Resolve a database `storage_path` to an absolute path inside `UPLOAD_DIR`.
+ * Returns `null` when the path is empty or escapes the upload directory.
+ */
+export function resolveLocalAttachmentPath(storagePath: string): string | null {
+  if (!storagePath) return null;
+
+  const normalized = storagePath.replace(/\\/g, '/');
+  if (normalized.split('/').some((segment) => segment === '..')) return null;
+
+  const root = path.resolve(getUploadDir());
+  const absolute = path.resolve(root, normalized);
+  const relative = path.relative(root, absolute);
+
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    return null;
+  }
+
+  return absolute;
+}
+
+/** Persist an uploaded file under `UPLOAD_DIR/<storagePath>`. */
+export async function saveLocalAttachment(
   storagePath: string,
-): Promise<string | null> {
-  const { data, error } = await supabase.storage
-    .from(ATTACHMENTS_BUCKET)
-    .createSignedUrl(storagePath, ATTACHMENT_URL_EXPIRY_SECONDS);
+  data: Buffer | Uint8Array,
+): Promise<string> {
+  const absolutePath = resolveLocalAttachmentPath(storagePath);
+  if (!absolutePath) {
+    throw new Error('Invalid attachment path');
+  }
 
-  if (error || !data) return null;
-  return data.signedUrl;
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, data);
+
+  return storagePath;
 }
 
-export async function removeAttachmentObject(
-  supabase: SupabaseClient<Database>,
-  storagePath: string,
-): Promise<void> {
-  await supabase.storage.from(ATTACHMENTS_BUCKET).remove([storagePath]);
+/** Read an attachment for the authenticated streaming route. */
+export async function readLocalAttachment(storagePath: string): Promise<Buffer> {
+  const absolutePath = resolveLocalAttachmentPath(storagePath);
+  if (!absolutePath) {
+    throw new Error('Invalid attachment path');
+  }
+
+  return readFile(absolutePath);
 }
 
-/** Replace the stored URL with a fresh signed URL for display/download. */
-export async function withSignedAttachmentUrl(
-  supabase: SupabaseClient<Database>,
-  attachment: Attachment,
-): Promise<Attachment> {
-  const signedUrl = await createAttachmentSignedUrl(supabase, attachment.storage_path);
+/** Roll back a file written before the database row was committed. */
+export async function deleteLocalAttachment(storagePath: string): Promise<void> {
+  const absolutePath = resolveLocalAttachmentPath(storagePath);
+  if (!absolutePath) return;
 
-  if (!signedUrl) return attachment;
-  return { ...attachment, file_url: signedUrl };
+  try {
+    await unlink(absolutePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
 }
 
-export async function signAttachments(
-  supabase: SupabaseClient<Database>,
-  attachments: Attachment[] | null | undefined,
-): Promise<Attachment[]> {
-  if (!attachments?.length) return [];
-
-  return Promise.all(
-    attachments.map((attachment) => withSignedAttachmentUrl(supabase, attachment)),
-  );
+/** Build the attachment row shape returned alongside messages. */
+export function buildAttachmentRow(params: {
+  id: string;
+  messageId: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  storagePath: string;
+  createdAt: string;
+}): Attachment {
+  return {
+    id: params.id,
+    message_id: params.messageId,
+    file_name: params.fileName,
+    file_type: params.fileType,
+    file_size: params.fileSize,
+    file_url: getAttachmentUrl(params.id),
+    storage_path: params.storagePath,
+    created_at: params.createdAt,
+  };
 }

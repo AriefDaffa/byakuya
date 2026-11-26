@@ -1,12 +1,159 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import {
-  REALTIME_SUBSCRIBE_STATES,
-  type RealtimePostgresChangesPayload,
-} from '@supabase/supabase-js';
-import type { Message } from '@/types/database';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { updateStatus } from '@/features/auth/actions';
+import type { RealtimeEvent } from '@/lib/realtime/bus';
+import type { MessageWithSender } from '@/types/chat';
+
+/**
+ * Client-side realtime transport.
+ *
+ * A single EventSource connection is shared by every hook: opening a page can
+ * mount message, conversation and presence subscriptions at the same time and
+ * they must not each open their own SSE stream. The browser reconnects the
+ * EventSource automatically when the network drops.
+ */
+
+const REALTIME_EVENT_TYPES = [
+  'message:insert',
+  'message:update',
+  'message:delete',
+  'conversation:update',
+  'presence:sync',
+] as const satisfies ReadonlyArray<RealtimeEvent['type']>;
+
+type RealtimeListener = (event: RealtimeEvent) => void;
+
+let eventSource: EventSource | null = null;
+let connectionRefCount = 0;
+let hasLoggedConnectionError = false;
+
+const listeners = new Set<RealtimeListener>();
+
+// Presence is shared state: a presence sync may arrive before a component
+// subscribes, and multiple components should observe the same snapshot.
+const EMPTY_ONLINE_USER_IDS: string[] = [];
+let onlineUserIdsSnapshot: string[] = EMPTY_ONLINE_USER_IDS;
+const presenceSubscribers = new Set<() => void>();
+
+function setOnlineUserIds(nextOnlineUserIds: string[]): void {
+  const unchanged =
+    onlineUserIdsSnapshot.length === nextOnlineUserIds.length &&
+    nextOnlineUserIds.every((id, index) => id === onlineUserIdsSnapshot[index]);
+
+  if (unchanged) return;
+
+  onlineUserIdsSnapshot = nextOnlineUserIds;
+
+  for (const subscriber of presenceSubscribers) {
+    subscriber();
+  }
+}
+
+function subscribeToPresenceSnapshot(subscriber: () => void): () => void {
+  presenceSubscribers.add(subscriber);
+
+  return () => {
+    presenceSubscribers.delete(subscriber);
+  };
+}
+
+function getPresenceSnapshot(): string[] {
+  return onlineUserIdsSnapshot;
+}
+
+function getServerPresenceSnapshot(): string[] {
+  return EMPTY_ONLINE_USER_IDS;
+}
+
+function dispatchRealtimeEvent(event: RealtimeEvent): void {
+  if (event.type === 'presence:sync') {
+    setOnlineUserIds(event.onlineUserIds);
+  }
+
+  for (const listener of Array.from(listeners)) {
+    try {
+      listener(event);
+    } catch (error) {
+      console.error('[realtime] A subscriber threw while handling an event', error);
+    }
+  }
+}
+
+function connect(): void {
+  if (eventSource || typeof window === 'undefined') return;
+
+  const source = new EventSource('/api/realtime');
+  eventSource = source;
+
+  const handleMessage = (message: MessageEvent<string>) => {
+    let event: RealtimeEvent;
+
+    try {
+      event = JSON.parse(message.data) as RealtimeEvent;
+    } catch {
+      console.warn('[realtime] Ignoring malformed event payload');
+      return;
+    }
+
+    dispatchRealtimeEvent(event);
+  };
+
+  for (const type of REALTIME_EVENT_TYPES) {
+    source.addEventListener(type, handleMessage as EventListener);
+  }
+
+  source.addEventListener('open', () => {
+    hasLoggedConnectionError = false;
+  });
+
+  source.addEventListener('error', () => {
+    if (hasLoggedConnectionError) return;
+
+    hasLoggedConnectionError = true;
+    console.warn('[realtime] SSE connection lost; the browser will retry.');
+  });
+}
+
+function disconnect(): void {
+  if (!eventSource) return;
+
+  eventSource.close();
+  eventSource = null;
+  hasLoggedConnectionError = false;
+}
+
+/**
+ * Hold the shared connection open. Reference-counted so the last hook to
+ * unmount closes the stream.
+ */
+function acquireRealtimeConnection(): () => void {
+  connectionRefCount += 1;
+  connect();
+
+  let released = false;
+
+  return () => {
+    if (released) return;
+    released = true;
+
+    connectionRefCount = Math.max(0, connectionRefCount - 1);
+
+    if (connectionRefCount === 0) {
+      disconnect();
+    }
+  };
+}
+
+function subscribeRealtimeEvents(listener: RealtimeListener): () => void {
+  listeners.add(listener);
+  const releaseConnection = acquireRealtimeConnection();
+
+  return () => {
+    listeners.delete(listener);
+    releaseConnection();
+  };
+}
 
 /**
  * Keep the latest callback in a ref so realtime subscriptions can stay mounted
@@ -22,32 +169,24 @@ function useLatestRef<T>(value: T) {
   return ref;
 }
 
-function handleChannelStatus(
-  channelName: string,
-  status: REALTIME_SUBSCRIBE_STATES,
-  error?: Error,
-) {
-  if (
-    status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR ||
-    status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT
-  ) {
-    console.warn(
-      `[realtime] Channel "${channelName}" ${status.toLowerCase()}`,
-      error ?? '',
-    );
-  }
+function persistPresenceStatus(status: 'online' | 'offline' | 'away'): void {
+  void Promise.resolve(updateStatus(status)).catch((error: unknown) => {
+    console.error('[realtime] Failed to update profile status', error);
+  });
 }
 
 interface UseRealtimeMessagesOptions {
   conversationId: string | null;
-  onNewMessage?: (message: Message) => void;
-  onMessageUpdate?: (message: Message) => void;
-  onMessageDelete?: (message: Message) => void;
+  onNewMessage?: (message: MessageWithSender) => void;
+  onMessageUpdate?: (message: MessageWithSender) => void;
+  onMessageDelete?: (messageId: string) => void;
 }
 
 /**
  * Subscribe to realtime message inserts, updates and deletes for a conversation.
- * Uses Supabase Realtime Postgres Changes.
+ *
+ * Events arrive as fully hydrated `MessageWithSender` payloads, so no extra
+ * client-side database lookup is required.
  */
 export function useRealtimeMessages({
   conversationId,
@@ -55,7 +194,6 @@ export function useRealtimeMessages({
   onMessageUpdate,
   onMessageDelete,
 }: UseRealtimeMessagesOptions) {
-  const supabase = createClient();
   const handlersRef = useLatestRef({
     onNewMessage,
     onMessageUpdate,
@@ -65,86 +203,28 @@ export function useRealtimeMessages({
   useEffect(() => {
     if (!conversationId) return;
 
-    const filter = `conversation_id=eq.${conversationId}`;
-    const channel = supabase
-      .channel(`messages:${conversationId}`)
-      .on<Message>(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter },
-        (payload: RealtimePostgresChangesPayload<Message>) => {
-          if (payload.eventType === 'INSERT') {
-            handlersRef.current.onNewMessage?.(payload.new as Message);
-          }
-        },
-      )
-      .on<Message>(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages', filter },
-        (payload: RealtimePostgresChangesPayload<Message>) => {
-          if (payload.eventType === 'UPDATE') {
-            handlersRef.current.onMessageUpdate?.(payload.new as Message);
-          }
-        },
-      )
-      .on<Message>(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'messages', filter },
-        (payload: RealtimePostgresChangesPayload<Message>) => {
-          if (payload.eventType === 'DELETE') {
-            handlersRef.current.onMessageDelete?.(payload.old as Message);
-          }
-        },
-      )
-      .subscribe((status, error) =>
-        handleChannelStatus(`messages:${conversationId}`, status, error),
-      );
+    return subscribeRealtimeEvents((event) => {
+      if (event.type === 'message:insert') {
+        if (event.conversationId === conversationId) {
+          handlersRef.current.onNewMessage?.(event.message);
+        }
+        return;
+      }
 
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [conversationId, supabase, handlersRef]);
-}
+      if (event.type === 'message:update') {
+        if (event.conversationId === conversationId) {
+          handlersRef.current.onMessageUpdate?.(event.message);
+        }
+        return;
+      }
 
-interface UseRealtimeNotificationsOptions {
-  userId: string | null;
-  onNotification: (notification: Record<string, unknown>) => void;
-}
-
-/**
- * Subscribe to realtime notifications for a user.
- */
-export function useRealtimeNotifications({
-  userId,
-  onNotification,
-}: UseRealtimeNotificationsOptions) {
-  const supabase = createClient();
-  const handlerRef = useLatestRef(onNotification);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          handlerRef.current(payload.new as Record<string, unknown>);
-        },
-      )
-      .subscribe((status, error) =>
-        handleChannelStatus(`notifications:${userId}`, status, error),
-      );
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [userId, supabase, handlerRef]);
+      if (event.type === 'message:delete') {
+        if (event.conversationId === conversationId) {
+          handlersRef.current.onMessageDelete?.(event.messageId);
+        }
+      }
+    });
+  }, [conversationId, handlersRef]);
 }
 
 interface UseRealtimeConversationsOptions {
@@ -153,179 +233,63 @@ interface UseRealtimeConversationsOptions {
 }
 
 /**
- * Subscribe to realtime conversation updates (new messages arrival).
+ * Subscribe to realtime conversation activity.
  *
  * The subscription intentionally depends on whether any conversations exist
  * rather than the `conversationIds` array identity, so refreshing the chat list
- * does not tear down and recreate the channel on every update.
+ * does not tear down and recreate the subscription on every update.
  */
 export function useRealtimeConversations({
   conversationIds: _conversationIds,
   onConversationUpdate,
 }: UseRealtimeConversationsOptions) {
-  const supabase = createClient();
   const callbackRef = useLatestRef(onConversationUpdate);
 
   useEffect(() => {
-    const channel = supabase
-      .channel('conversation-updates')
-      .on<Message>(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload: RealtimePostgresChangesPayload<Message>) => {
-          if (payload.eventType !== 'INSERT') return;
-          const message = payload.new as Message;
-          if (message.conversation_id) {
-            callbackRef.current(message.conversation_id);
-          }
-        },
-      )
-      .on<{ id: string }>(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'conversations' },
-        (payload) => {
-          const conv = (payload.new ?? payload.old) as { id?: string } | null;
-          if (conv?.id) {
-            callbackRef.current(conv.id);
-          }
-        },
-      )
-      .subscribe((status, error) =>
-        handleChannelStatus('conversation-updates', status, error),
-      );
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [supabase, callbackRef]);
-}
-
-interface UseRealtimeTypingOptions {
-  conversationId: string | null;
-  currentUserId: string | null;
-  onTypingChange: (userId: string, isTyping: boolean) => void;
+    return subscribeRealtimeEvents((event) => {
+      if (
+        event.type === 'message:insert' ||
+        event.type === 'message:update' ||
+        event.type === 'message:delete' ||
+        event.type === 'conversation:update'
+      ) {
+        callbackRef.current(event.conversationId);
+      }
+    });
+  }, [callbackRef]);
 }
 
 /**
- * Subscribe to typing indicators in a conversation.
- */
-export function useRealtimeTyping({
-  conversationId,
-  currentUserId,
-  onTypingChange,
-}: UseRealtimeTypingOptions) {
-  const supabase = createClient();
-  const handlerRef = useLatestRef(onTypingChange);
-
-  useEffect(() => {
-    if (!conversationId) return;
-
-    const channel = supabase
-      .channel(`typing:${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'typing_indicators',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const record = (payload.new || payload.old) as Record<string, string>;
-          if (record && record.user_id !== currentUserId) {
-            handlerRef.current(
-              record.user_id,
-              payload.eventType === 'INSERT' || payload.eventType === 'UPDATE',
-            );
-          }
-        },
-      )
-      .subscribe((status, error) =>
-        handleChannelStatus(`typing:${conversationId}`, status, error),
-      );
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [conversationId, currentUserId, supabase, handlerRef]);
-}
-
-/**
- * Hook to manage user online presence via Supabase Realtime Presence.
+ * Track which users currently have at least one live SSE connection.
  *
- * Returns the IDs of users currently tracked as online so callers can render
- * presence badges.
+ * Returns the IDs of online users so callers can render presence badges.
  */
 export function usePresence(userId: string | null): string[] {
-  const supabase = createClient();
-  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
-
-  const updateStatus = useCallback(
-    async (status: 'online' | 'offline' | 'away') => {
-      if (!userId) return;
-      await supabase
-        .from('profiles')
-        .update({ status, last_seen: new Date().toISOString() })
-        .eq('id', userId);
-    },
-    [userId, supabase],
+  const onlineUserIds = useSyncExternalStore(
+    subscribeToPresenceSnapshot,
+    getPresenceSnapshot,
+    getServerPresenceSnapshot,
   );
+
+  // Presence is delivered by the shared SSE connection even when no other
+  // realtime hook is mounted, so hold a reference for the hook's lifetime.
+  useEffect(() => {
+    if (!userId) return;
+
+    return acquireRealtimeConnection();
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
 
-    const channel = supabase.channel('online-users', {
-      config: { presence: { key: userId } },
-    });
-
-    const syncOnlineUsers = () => {
-      const presenceState = channel.presenceState<{ user_id?: string }>();
-      const ids = new Set<string>();
-
-      for (const presences of Object.values(presenceState)) {
-        for (const presence of presences) {
-          if (presence.user_id) ids.add(presence.user_id);
-        }
-      }
-
-      // The local user is always considered online while subscribed.
-      ids.add(userId);
-      setOnlineUserIds(Array.from(ids));
-    };
-
-    channel
-      .on('presence', { event: 'sync' }, syncOnlineUsers)
-      .on('presence', { event: 'join' }, syncOnlineUsers)
-      .on('presence', { event: 'leave' }, syncOnlineUsers)
-      .subscribe(async (status) => {
-        if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
-          await channel.track({
-            user_id: userId,
-            online_at: new Date().toISOString(),
-          });
-          await updateStatus('online');
-        } else if (
-          status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR ||
-          status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT
-        ) {
-          handleChannelStatus('online-users', status);
-        }
-      });
+    persistPresenceStatus('online');
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void channel.track({
-          user_id: userId,
-          online_at: new Date().toISOString(),
-        });
-        void updateStatus('online');
-      } else {
-        void updateStatus('away');
-      }
+      persistPresenceStatus(document.visibilityState === 'visible' ? 'online' : 'away');
     };
 
     const handleBeforeUnload = () => {
-      void updateStatus('offline');
+      persistPresenceStatus('offline');
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -334,10 +298,9 @@ export function usePresence(userId: string | null): string[] {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      void updateStatus('offline');
-      void supabase.removeChannel(channel);
+      persistPresenceStatus('offline');
     };
-  }, [userId, supabase, updateStatus]);
+  }, [userId]);
 
-  return userId ? onlineUserIds : [];
+  return userId ? onlineUserIds : EMPTY_ONLINE_USER_IDS;
 }

@@ -12,12 +12,11 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Loader } from '@/components/ui/loader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getOrCreateConversation } from '@/features/chat/actions';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { getMe } from '@/features/auth/actions';
+import { useCallback, useEffect, useState } from 'react';
 import type { Profile } from '@/types/database';
 
 export function ChatSidebar() {
-  const supabase = useMemo(() => createClient(), []);
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
 
   const { data, isLoading, refetch } = useChatList();
@@ -33,17 +32,22 @@ export function ChatSidebar() {
 
   // Get current user profile
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        setCurrentUser(profile);
-      }
-    });
-  }, [supabase]);
+    let cancelled = false;
+
+    void getMe()
+      .then((profile) => {
+        if (!cancelled) {
+          setCurrentUser(profile);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to load current user:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const openChat = useCallback(
     (conversationId: string, user: Profile) => {
