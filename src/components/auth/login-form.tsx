@@ -5,11 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, sanitizeRedirectPath, type LoginFormData } from '@/types/auth';
 import { signIn } from '@/features/auth/actions';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-
-const CALLBACK_ERROR_MESSAGE =
-  'We could not complete the sign-in. Please try again or sign in with your password.';
 
 /**
  * `redirect()` inside a server action rejects the client promise with a
@@ -35,15 +32,6 @@ export function LoginForm() {
       ? '/'
       : sanitizeRedirectPath(new URLSearchParams(window.location.search).get('next')),
   );
-  const [callbackError, setCallbackError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const error = new URLSearchParams(window.location.search).get('error');
-
-    if (error === 'auth_callback_error') {
-      setCallbackError(CALLBACK_ERROR_MESSAGE);
-    }
-  }, []);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -77,15 +65,6 @@ export function LoginForm() {
           Enter your email and password to continue.
         </p>
       </div>
-
-      {callbackError && (
-        <p
-          role="alert"
-          className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm"
-        >
-          {callbackError}
-        </p>
-      )}
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">

@@ -26,18 +26,17 @@ export function RegisterForm() {
     setIsLoading(true);
     try {
       const result = await signUp(data);
+
       if (result?.error) {
         toast.error(result.error);
-      } else if (result?.autoSignedIn) {
-        toast.success('Account created and you are now logged in!');
-        // Refresh server components so the new session is picked up before
-        // navigating to the app shell.
-        router.refresh();
-        router.push('/');
-      } else {
-        toast.success(result?.message || 'Account created successfully!');
-        form.reset();
+        return;
       }
+
+      toast.success(result?.message || 'Account created and you are now logged in!');
+      // Refresh server components so the new session is picked up before
+      // navigating to the app shell.
+      router.refresh();
+      router.push('/');
     } catch {
       toast.error('An unexpected error occurred');
     } finally {
