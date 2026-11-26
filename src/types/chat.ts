@@ -7,7 +7,7 @@ import type { Profile, Message, Conversation, Attachment } from './database';
 /** A conversation with its latest message and other member's profile */
 export interface ChatListItem {
   conversation: Conversation;
-  otherUser: Profile;
+  otherUser: Profile | null;
   lastMessage: Message | null;
   unreadCount: number;
 }

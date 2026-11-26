@@ -20,8 +20,8 @@ export interface Database {
           name: string;
           email: string;
           avatar_url: string | null;
-          status: 'online' | 'offline' | 'away';
-          last_seen: string;
+          status: 'online' | 'offline' | 'away' | null;
+          last_seen: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -79,9 +79,9 @@ export interface Database {
           id: string;
           conversation_id: string;
           user_id: string;
-          role: 'admin' | 'member';
+          role: 'admin' | 'member' | null;
           joined_at: string;
-          last_read_at: string;
+          last_read_at: string | null;
         };
         Insert: {
           id?: string;
@@ -122,9 +122,9 @@ export interface Database {
           conversation_id: string;
           sender_id: string;
           content: string | null;
-          type: 'text' | 'image' | 'file' | 'system';
-          is_edited: boolean;
-          is_deleted: boolean;
+          type: 'text' | 'image' | 'file' | 'system' | null;
+          is_edited: boolean | null;
+          is_deleted: boolean | null;
           reply_to_id: string | null;
           created_at: string;
           updated_at: string;

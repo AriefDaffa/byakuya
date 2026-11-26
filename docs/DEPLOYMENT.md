@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - A Supabase project (free tier works for development)
 - Vercel account (recommended) or any Node.js hosting
 
@@ -35,6 +35,7 @@ supabase db push
 ### Enable Realtime
 
 In the Supabase Dashboard:
+
 1. Go to **Database → Replication**
 2. Enable replication for these tables:
    - `messages`
@@ -67,6 +68,7 @@ vercel env add SUPABASE_SERVICE_ROLE_KEY
 Or connect your GitHub repository in the Vercel dashboard for automatic deployments.
 
 **Vercel Settings:**
+
 - Framework Preset: Next.js
 - Build Command: `npm run build`
 - Output Directory: `.next`
