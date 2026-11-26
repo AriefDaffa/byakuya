@@ -1,11 +1,11 @@
 # Byakuya
 
-Modern realtime chat application built with Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Zustand, and Supabase (Auth, PostgreSQL + RLS, Realtime, and Private Storage).
+Modern realtime chat application built with Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Zustand, and PostgreSQL (Docker).
 
 ## Prerequisites
 
 - **Node.js** `>= 20.9.0`
-- **Supabase** project (or local Supabase CLI)
+- **Docker** (for local PostgreSQL)
 
 ## Setup
 
@@ -13,13 +13,13 @@ Modern realtime chat application built with Next.js 16 (App Router), React 19, T
    ```bash
    npm install
    ```
-2. Copy the environment template and fill in your Supabase credentials:
+2. Copy the environment template:
    ```bash
    cp .env.example .env.local
    ```
-3. Push database migrations (`00001_initial_schema.sql` and `00002_fix_rls_rpc_and_storage.sql`):
+3. Start PostgreSQL in Docker (automatically initializes `db/init/001_schema.sql`):
    ```bash
-   supabase db push
+   npm run db:up
    ```
 4. Start the development server:
    ```bash
@@ -36,3 +36,4 @@ Modern realtime chat application built with Next.js 16 (App Router), React 19, T
 - `npx vitest run` — Run unit/component tests once (`npm test` runs watch mode)
 - `npm run test:coverage` — Run Vitest with V8 coverage
 - `npm run test:e2e` — Run Playwright E2E tests (`./e2e`)
+- `npm run db:up` / `npm run db:down` / `npm run db:psql` — Manage Docker PostgreSQL

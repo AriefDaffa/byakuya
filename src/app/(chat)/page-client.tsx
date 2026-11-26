@@ -7,11 +7,10 @@ import { SheetOverlay } from '@/components/layout/sheet-overlay';
 import { ReceiverProfile } from '@/components/chat/receiver-profile';
 import { useChatStore } from '@/store/chat-store';
 import { usePresence } from '@/hooks/use-realtime';
-import { createClient } from '@/lib/supabase/client';
-import { useEffect, useMemo, useState } from 'react';
+import { getMe } from '@/features/auth/actions';
+import { useEffect, useState } from 'react';
 
 export function ChatPageClient() {
-  const supabase = useMemo(() => createClient(), []);
   const [userId, setUserId] = useState<string | null>(null);
 
   const selectedUser = useChatStore((state) => state.selectedUser);
@@ -22,10 +21,16 @@ export function ChatPageClient() {
 
   // Get user ID for presence
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUserId(user?.id || null);
+    let active = true;
+    getMe().then((user) => {
+      if (active) {
+        setUserId(user?.id ?? null);
+      }
     });
-  }, [supabase]);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Track user presence
   usePresence(userId);
