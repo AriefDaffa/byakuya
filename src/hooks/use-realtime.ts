@@ -1,61 +1,108 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type {
-  RealtimeChannel,
-  RealtimePostgresChangesPayload,
+import {
+  REALTIME_SUBSCRIBE_STATES,
+  type RealtimePostgresChangesPayload,
 } from '@supabase/supabase-js';
 import type { Message } from '@/types/database';
 
+/**
+ * Keep the latest callback in a ref so realtime subscriptions can stay mounted
+ * when a caller passes an inline (unstable) callback on every render.
+ */
+function useLatestRef<T>(value: T) {
+  const ref = useRef(value);
+
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
+
+  return ref;
+}
+
+function handleChannelStatus(
+  channelName: string,
+  status: REALTIME_SUBSCRIBE_STATES,
+  error?: Error,
+) {
+  if (
+    status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR ||
+    status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT
+  ) {
+    console.warn(
+      `[realtime] Channel "${channelName}" ${status.toLowerCase()}`,
+      error ?? '',
+    );
+  }
+}
+
 interface UseRealtimeMessagesOptions {
   conversationId: string | null;
-  onNewMessage: (message: Message) => void;
+  onNewMessage?: (message: Message) => void;
+  onMessageUpdate?: (message: Message) => void;
+  onMessageDelete?: (message: Message) => void;
 }
 
 /**
- * Subscribe to realtime message inserts for a conversation.
+ * Subscribe to realtime message inserts, updates and deletes for a conversation.
  * Uses Supabase Realtime Postgres Changes.
  */
 export function useRealtimeMessages({
   conversationId,
   onNewMessage,
+  onMessageUpdate,
+  onMessageDelete,
 }: UseRealtimeMessagesOptions) {
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const supabase = createClient();
+  const handlersRef = useLatestRef({
+    onNewMessage,
+    onMessageUpdate,
+    onMessageDelete,
+  });
 
   useEffect(() => {
     if (!conversationId) return;
 
-    // Clean up previous subscription
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
-
+    const filter = `conversation_id=eq.${conversationId}`;
     const channel = supabase
       .channel(`messages:${conversationId}`)
       .on<Message>(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter },
         (payload: RealtimePostgresChangesPayload<Message>) => {
           if (payload.eventType === 'INSERT') {
-            onNewMessage(payload.new as Message);
+            handlersRef.current.onNewMessage?.(payload.new as Message);
           }
         },
       )
-      .subscribe();
-
-    channelRef.current = channel;
+      .on<Message>(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter },
+        (payload: RealtimePostgresChangesPayload<Message>) => {
+          if (payload.eventType === 'UPDATE') {
+            handlersRef.current.onMessageUpdate?.(payload.new as Message);
+          }
+        },
+      )
+      .on<Message>(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages', filter },
+        (payload: RealtimePostgresChangesPayload<Message>) => {
+          if (payload.eventType === 'DELETE') {
+            handlersRef.current.onMessageDelete?.(payload.old as Message);
+          }
+        },
+      )
+      .subscribe((status, error) =>
+        handleChannelStatus(`messages:${conversationId}`, status, error),
+      );
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [conversationId, onNewMessage, supabase]);
+  }, [conversationId, supabase, handlersRef]);
 }
 
 interface UseRealtimeNotificationsOptions {
@@ -70,15 +117,11 @@ export function useRealtimeNotifications({
   userId,
   onNotification,
 }: UseRealtimeNotificationsOptions) {
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const supabase = createClient();
+  const handlerRef = useLatestRef(onNotification);
 
   useEffect(() => {
     if (!userId) return;
-
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
 
     const channel = supabase
       .channel(`notifications:${userId}`)
@@ -91,17 +134,17 @@ export function useRealtimeNotifications({
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          onNotification(payload.new);
+          handlerRef.current(payload.new as Record<string, unknown>);
         },
       )
-      .subscribe();
-
-    channelRef.current = channel;
+      .subscribe((status, error) =>
+        handleChannelStatus(`notifications:${userId}`, status, error),
+      );
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [userId, onNotification, supabase]);
+  }, [userId, supabase, handlerRef]);
 }
 
 interface UseRealtimeConversationsOptions {
@@ -111,47 +154,49 @@ interface UseRealtimeConversationsOptions {
 
 /**
  * Subscribe to realtime conversation updates (new messages arrival).
+ *
+ * The subscription intentionally depends on whether any conversations exist
+ * rather than the `conversationIds` array identity, so refreshing the chat list
+ * does not tear down and recreate the channel on every update.
  */
 export function useRealtimeConversations({
   conversationIds,
   onConversationUpdate,
 }: UseRealtimeConversationsOptions) {
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const supabase = createClient();
+  const conversationIdsRef = useRef(conversationIds);
+  const callbackRef = useLatestRef(onConversationUpdate);
+  const hasConversations = conversationIds.length > 0;
 
   useEffect(() => {
-    if (!conversationIds.length) return;
+    conversationIdsRef.current = conversationIds;
+  }, [conversationIds]);
 
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
+  useEffect(() => {
+    if (!hasConversations) return;
 
     const channel = supabase
       .channel('conversation-updates')
       .on<Message>(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const msg = payload.new as Message;
-            if (conversationIds.includes(msg.conversation_id)) {
-              onConversationUpdate(msg.conversation_id);
-            }
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload: RealtimePostgresChangesPayload<Message>) => {
+          if (payload.eventType !== 'INSERT') return;
+
+          const message = payload.new as Message;
+          if (conversationIdsRef.current.includes(message.conversation_id)) {
+            callbackRef.current(message.conversation_id);
           }
         },
       )
-      .subscribe();
-
-    channelRef.current = channel;
+      .subscribe((status, error) =>
+        handleChannelStatus('conversation-updates', status, error),
+      );
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [conversationIds, onConversationUpdate, supabase]);
+  }, [hasConversations, supabase, callbackRef]);
 }
 
 interface UseRealtimeTypingOptions {
@@ -168,15 +213,11 @@ export function useRealtimeTyping({
   currentUserId,
   onTypingChange,
 }: UseRealtimeTypingOptions) {
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const supabase = createClient();
+  const handlerRef = useLatestRef(onTypingChange);
 
   useEffect(() => {
     if (!conversationId) return;
-
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
 
     const channel = supabase
       .channel(`typing:${conversationId}`)
@@ -191,29 +232,32 @@ export function useRealtimeTyping({
         (payload) => {
           const record = (payload.new || payload.old) as Record<string, string>;
           if (record && record.user_id !== currentUserId) {
-            onTypingChange(
+            handlerRef.current(
               record.user_id,
               payload.eventType === 'INSERT' || payload.eventType === 'UPDATE',
             );
           }
         },
       )
-      .subscribe();
-
-    channelRef.current = channel;
+      .subscribe((status, error) =>
+        handleChannelStatus(`typing:${conversationId}`, status, error),
+      );
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [conversationId, currentUserId, onTypingChange, supabase]);
+  }, [conversationId, currentUserId, supabase, handlerRef]);
 }
 
 /**
  * Hook to manage user online presence via Supabase Realtime Presence.
+ *
+ * Returns the IDs of users currently tracked as online so callers can render
+ * presence badges.
  */
-export function usePresence(userId: string | null) {
-  const channelRef = useRef<RealtimeChannel | null>(null);
+export function usePresence(userId: string | null): string[] {
   const supabase = createClient();
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
   const updateStatus = useCallback(
     async (status: 'online' | 'offline' | 'away') => {
@@ -233,29 +277,66 @@ export function usePresence(userId: string | null) {
       config: { presence: { key: userId } },
     });
 
+    const syncOnlineUsers = () => {
+      const presenceState = channel.presenceState<{ user_id?: string }>();
+      const ids = new Set<string>();
+
+      for (const presences of Object.values(presenceState)) {
+        for (const presence of presences) {
+          if (presence.user_id) ids.add(presence.user_id);
+        }
+      }
+
+      // The local user is always considered online while subscribed.
+      ids.add(userId);
+      setOnlineUserIds(Array.from(ids));
+    };
+
     channel
-      .on('presence', { event: 'sync' }, () => {
-        // Can track online users here if needed
-      })
+      .on('presence', { event: 'sync' }, syncOnlineUsers)
+      .on('presence', { event: 'join' }, syncOnlineUsers)
+      .on('presence', { event: 'leave' }, syncOnlineUsers)
       .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({ user_id: userId, online_at: new Date().toISOString() });
+        if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
+          await channel.track({
+            user_id: userId,
+            online_at: new Date().toISOString(),
+          });
           await updateStatus('online');
+        } else if (
+          status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR ||
+          status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT
+        ) {
+          handleChannelStatus('online-users', status);
         }
       });
 
-    channelRef.current = channel;
-
-    // Set offline on page unload
-    const handleBeforeUnload = () => {
-      updateStatus('offline');
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void channel.track({
+          user_id: userId,
+          online_at: new Date().toISOString(),
+        });
+        void updateStatus('online');
+      } else {
+        void updateStatus('away');
+      }
     };
+
+    const handleBeforeUnload = () => {
+      void updateStatus('offline');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      updateStatus('offline');
-      supabase.removeChannel(channel);
+      void updateStatus('offline');
+      void supabase.removeChannel(channel);
     };
   }, [userId, supabase, updateStatus]);
+
+  return userId ? onlineUserIds : [];
 }
