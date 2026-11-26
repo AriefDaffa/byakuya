@@ -160,21 +160,13 @@ interface UseRealtimeConversationsOptions {
  * does not tear down and recreate the channel on every update.
  */
 export function useRealtimeConversations({
-  conversationIds,
+  conversationIds: _conversationIds,
   onConversationUpdate,
 }: UseRealtimeConversationsOptions) {
   const supabase = createClient();
-  const conversationIdsRef = useRef(conversationIds);
   const callbackRef = useLatestRef(onConversationUpdate);
-  const hasConversations = conversationIds.length > 0;
 
   useEffect(() => {
-    conversationIdsRef.current = conversationIds;
-  }, [conversationIds]);
-
-  useEffect(() => {
-    if (!hasConversations) return;
-
     const channel = supabase
       .channel('conversation-updates')
       .on<Message>(
@@ -182,10 +174,19 @@ export function useRealtimeConversations({
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload: RealtimePostgresChangesPayload<Message>) => {
           if (payload.eventType !== 'INSERT') return;
-
           const message = payload.new as Message;
-          if (conversationIdsRef.current.includes(message.conversation_id)) {
+          if (message.conversation_id) {
             callbackRef.current(message.conversation_id);
+          }
+        },
+      )
+      .on<{ id: string }>(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
+        (payload) => {
+          const conv = (payload.new ?? payload.old) as { id?: string } | null;
+          if (conv?.id) {
+            callbackRef.current(conv.id);
           }
         },
       )
@@ -196,7 +197,7 @@ export function useRealtimeConversations({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [hasConversations, supabase, callbackRef]);
+  }, [supabase, callbackRef]);
 }
 
 interface UseRealtimeTypingOptions {

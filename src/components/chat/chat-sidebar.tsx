@@ -20,7 +20,7 @@ export function ChatSidebar() {
   const supabase = useMemo(() => createClient(), []);
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
 
-  const { data, isLoading } = useChatList();
+  const { data, isLoading, refetch } = useChatList();
   const { onSearch, results, isLoading: isSearching } = useChatSearch();
   const searchKeyword = useChatListStore((state) => state.searchKeyword);
   const setSearchKeyword = useChatListStore((state) => state.setSearchKeyword);
@@ -87,8 +87,9 @@ export function ChatSidebar() {
       }
 
       openChat(result.conversationId, user);
+      void refetch();
     },
-    [openChat],
+    [openChat, refetch],
   );
 
   const handleSelectSearchMessage = useCallback(
@@ -222,7 +223,9 @@ export function ChatSidebar() {
                 <ChatListItemComponent
                   key={item.conversation.id}
                   item={item}
-                  isActive={selectedUser?.id === item.otherUser?.id}
+                  isActive={Boolean(
+                    selectedUser?.id && item.otherUser?.id === selectedUser.id,
+                  )}
                   onClick={() =>
                     item.otherUser && openChat(item.conversation.id, item.otherUser)
                   }

@@ -158,6 +158,7 @@ CREATE POLICY "Users can leave conversations"
 DROP POLICY IF EXISTS "Users can view messages in their conversations" ON public.messages;
 DROP POLICY IF EXISTS "Users can send messages to their conversations" ON public.messages;
 DROP POLICY IF EXISTS "Users can update their own messages" ON public.messages;
+DROP POLICY IF EXISTS "Users can delete their own messages" ON public.messages;
 
 CREATE POLICY "Users can view messages in their conversations"
   ON public.messages FOR SELECT
@@ -180,6 +181,14 @@ CREATE POLICY "Users can update their own messages"
     AND public.is_conversation_member(messages.conversation_id, auth.uid())
   )
   WITH CHECK (
+    sender_id = auth.uid()
+    AND public.is_conversation_member(messages.conversation_id, auth.uid())
+  );
+
+CREATE POLICY "Users can delete their own messages"
+  ON public.messages FOR DELETE
+  TO authenticated
+  USING (
     sender_id = auth.uid()
     AND public.is_conversation_member(messages.conversation_id, auth.uid())
   );
@@ -252,7 +261,7 @@ CREATE POLICY "Users can delete their own typing indicator"
 -- 6. Storage bucket & object policies for private attachments
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('attachments', 'attachments', false)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = false;
 
 DROP POLICY IF EXISTS "Members can view conversation attachments" ON storage.objects;
 DROP POLICY IF EXISTS "Members can upload conversation attachments" ON storage.objects;
@@ -263,8 +272,14 @@ CREATE POLICY "Members can view conversation attachments"
   TO authenticated
   USING (
     bucket_id = 'attachments'
-    AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-    AND public.is_conversation_member(((storage.foldername(name))[1])::uuid, auth.uid())
+    AND (
+      (storage.foldername(name))[1] = auth.uid()::text
+      OR CASE
+        WHEN (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+        THEN public.is_conversation_member(((storage.foldername(name))[1])::uuid, auth.uid())
+        ELSE FALSE
+      END
+    )
   );
 
 CREATE POLICY "Members can upload conversation attachments"
@@ -272,8 +287,11 @@ CREATE POLICY "Members can upload conversation attachments"
   TO authenticated
   WITH CHECK (
     bucket_id = 'attachments'
-    AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-    AND public.is_conversation_member(((storage.foldername(name))[1])::uuid, auth.uid())
+    AND CASE
+      WHEN (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+      THEN public.is_conversation_member(((storage.foldername(name))[1])::uuid, auth.uid())
+      ELSE FALSE
+    END
   );
 
 CREATE POLICY "Owners can delete their attachments"
@@ -281,5 +299,5 @@ CREATE POLICY "Owners can delete their attachments"
   TO authenticated
   USING (
     bucket_id = 'attachments'
-    AND owner = auth.uid()
+    AND (owner_id = auth.uid()::text OR owner = auth.uid())
   );

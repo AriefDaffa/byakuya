@@ -16,7 +16,8 @@ interface MessageInputProps {
   disabled?: boolean;
 }
 
-const ACCEPTED_FILE_TYPES = 'image/*,.pdf,.doc,.docx,.txt,.zip,.rar';
+const ACCEPTED_FILE_TYPES =
+  'image/png,image/jpeg,image/gif,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.rtf';
 
 export function MessageInput({
   value,
