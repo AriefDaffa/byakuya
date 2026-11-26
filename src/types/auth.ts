@@ -20,3 +20,28 @@ export type SignUpResponse = {
   message?: string;
   autoSignedIn?: boolean;
 };
+
+const DEFAULT_REDIRECT_PATH = '/';
+
+/**
+ * Returns a same-origin relative redirect path.
+ *
+ * Anything that could escape the application origin (absolute URLs,
+ * protocol-relative URLs, backslash tricks or embedded credentials) falls back
+ * to `/`. Values that are not strings starting with a single `/` are rejected.
+ */
+export function sanitizeRedirectPath(next: string | null | undefined): string {
+  if (!next) return DEFAULT_REDIRECT_PATH;
+
+  // Browsers may normalize backslashes and strip whitespace/control characters,
+  // which can turn `/\evil.com` into `//evil.com`.
+  if (/[\u0000-\u001f\u007f\s\\]/.test(next)) return DEFAULT_REDIRECT_PATH;
+  if (!next.startsWith('/')) return DEFAULT_REDIRECT_PATH;
+  if (next.startsWith('//')) return DEFAULT_REDIRECT_PATH;
+  if (next.includes('@')) return DEFAULT_REDIRECT_PATH;
+
+  // Reject paths that smuggle an absolute scheme right after the leading slash.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(next.slice(1))) return DEFAULT_REDIRECT_PATH;
+
+  return next;
+}

@@ -30,6 +30,9 @@ export function RegisterForm() {
         toast.error(result.error);
       } else if (result?.autoSignedIn) {
         toast.success('Account created and you are now logged in!');
+        // Refresh server components so the new session is picked up before
+        // navigating to the app shell.
+        router.refresh();
         router.push('/');
       } else {
         toast.success(result?.message || 'Account created successfully!');
@@ -57,6 +60,7 @@ export function RegisterForm() {
           <input
             id="name"
             type="text"
+            autoComplete="name"
             className="placeholder:text-muted-foreground focus:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm ring-0 outline-none focus:ring-2"
             {...form.register('name')}
           />
@@ -74,6 +78,7 @@ export function RegisterForm() {
           <input
             id="email"
             type="email"
+            autoComplete="email"
             className="placeholder:text-muted-foreground focus:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm ring-0 outline-none focus:ring-2"
             {...form.register('email')}
           />
@@ -91,6 +96,7 @@ export function RegisterForm() {
           <input
             id="password"
             type="password"
+            autoComplete="new-password"
             className="placeholder:text-muted-foreground focus:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm ring-0 outline-none focus:ring-2"
             {...form.register('password')}
           />

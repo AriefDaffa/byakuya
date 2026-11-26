@@ -1,5 +1,38 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { sanitizeRedirectPath } from '@/types/auth';
+
+type RedirectTarget = {
+  pathname: string;
+  next?: string;
+};
+
+/**
+ * Builds a redirect response that keeps every cookie Supabase refreshed during
+ * the auth check. Without this, rotated access/refresh tokens are dropped and
+ * the browser keeps using stale credentials.
+ */
+function redirectWithCookies(
+  request: NextRequest,
+  supabaseResponse: NextResponse,
+  target: RedirectTarget,
+) {
+  const url = request.nextUrl.clone();
+  url.pathname = target.pathname;
+  url.search = '';
+
+  if (target.next && target.next !== '/') {
+    url.searchParams.set('next', target.next);
+  }
+
+  const redirectResponse = NextResponse.redirect(url);
+
+  supabaseResponse.cookies.getAll().forEach((cookie) => {
+    redirectResponse.cookies.set(cookie);
+  });
+
+  return redirectResponse;
+}
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -32,29 +65,28 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthPage =
-    request.nextUrl.pathname.startsWith('/login') ||
-    request.nextUrl.pathname.startsWith('/register');
+  const { pathname, search } = request.nextUrl;
+  const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register');
 
-  const isCallbackRoute = request.nextUrl.pathname.startsWith('/auth/callback');
-
-  // Allow callback routes
-  if (isCallbackRoute) {
+  // Allow auth callbacks/confirmations to run regardless of session state.
+  const isAuthRoute = pathname === '/auth' || pathname.startsWith('/auth/');
+  if (isAuthRoute) {
     return supabaseResponse;
   }
 
-  // Redirect unauthenticated users to login
+  // Redirect unauthenticated users to login, keeping the destination around.
   if (!user && !isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
+    const next = sanitizeRedirectPath(`${pathname}${search}`);
+
+    return redirectWithCookies(request, supabaseResponse, {
+      pathname: '/login',
+      next,
+    });
   }
 
   // Redirect authenticated users away from auth pages
   if (user && isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    return NextResponse.redirect(url);
+    return redirectWithCookies(request, supabaseResponse, { pathname: '/' });
   }
 
   return supabaseResponse;

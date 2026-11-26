@@ -1,47 +1,96 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import type { LoginFormData, RegisterFormData, SignUpResponse } from '@/types/auth';
+import { createClient } from '@/lib/supabase/server';
+import {
+  loginSchema,
+  registerSchema,
+  sanitizeRedirectPath,
+  type LoginFormData,
+  type RegisterFormData,
+  type SignUpResponse,
+} from '@/types/auth';
 
-export async function signIn(data: LoginFormData) {
+function firstValidationError(issues: { message: string }[]): string {
+  return issues[0]?.message ?? 'Invalid input';
+}
+
+async function getAppOrigin(): Promise<string> {
+  const fallback =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, '') || 'http://localhost:3000';
+
+  try {
+    const headersList = await headers();
+    const origin = headersList.get('origin');
+
+    if (origin) return origin;
+  } catch {
+    // headers() is unavailable outside of a request scope (e.g. tests).
+  }
+
+  return fallback;
+}
+
+export async function signIn(
+  data: LoginFormData,
+  next?: string,
+): Promise<{ error: string }> {
+  const parsed = loginSchema.safeParse(data);
+
+  if (!parsed.success) {
+    return { error: firstValidationError(parsed.error.issues) };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithPassword({
-    email: data.email,
-    password: data.password,
+    email: parsed.data.email,
+    password: parsed.data.password,
   });
 
   if (error) {
     return { error: error.message };
   }
 
-  // Update profile status to online
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Best-effort presence update so a failed write never blocks the login.
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (user) {
-    await supabase
-      .from('profiles')
-      .update({ status: 'online', last_seen: new Date().toISOString() })
-      .eq('id', user.id);
+    if (user) {
+      await supabase
+        .from('profiles')
+        .update({ status: 'online', last_seen: new Date().toISOString() })
+        .eq('id', user.id);
+    }
+  } catch (profileError) {
+    console.error('Failed to mark profile online after sign in', profileError);
   }
 
-  redirect('/');
+  redirect(sanitizeRedirectPath(next));
 }
 
 export async function signUp(data: RegisterFormData): Promise<SignUpResponse> {
+  const parsed = registerSchema.safeParse(data);
+
+  if (!parsed.success) {
+    return { error: firstValidationError(parsed.error.issues) };
+  }
+
+  const origin = await getAppOrigin();
   const supabase = await createClient();
   const requireEmailConfirmation =
     process.env.NEXT_PUBLIC_REQUIRE_EMAIL_CONFIRMATION === 'true';
 
   const { error } = await supabase.auth.signUp({
-    email: data.email,
-    password: data.password,
+    email: parsed.data.email,
+    password: parsed.data.password,
     options: {
+      emailRedirectTo: `${origin}/auth/callback`,
       data: {
-        name: data.name,
+        name: parsed.data.name,
         avatar_url: null,
       },
     },
@@ -54,8 +103,8 @@ export async function signUp(data: RegisterFormData): Promise<SignUpResponse> {
   if (!requireEmailConfirmation) {
     // Auto-sign in the user if email confirmation is disabled
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
+      email: parsed.data.email,
+      password: parsed.data.password,
     });
 
     if (signInError) {
@@ -79,42 +128,31 @@ export async function signUp(data: RegisterFormData): Promise<SignUpResponse> {
   };
 }
 
-export async function signOut() {
+export async function signOut(): Promise<void> {
   const supabase = await createClient();
 
-  // Update profile status to offline before signing out
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    // Update profile status to offline before signing out (best-effort).
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (user) {
-    await supabase
-      .from('profiles')
-      .update({ status: 'offline', last_seen: new Date().toISOString() })
-      .eq('id', user.id);
+    if (user) {
+      await supabase
+        .from('profiles')
+        .update({ status: 'offline', last_seen: new Date().toISOString() })
+        .eq('id', user.id);
+    }
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error('Failed to sign out of Supabase', error);
+    }
+  } catch (signOutError) {
+    console.error('Unexpected error while signing out', signOutError);
   }
 
-  await supabase.auth.signOut();
+  // Always send the user back to the login page, even if cleanup failed.
   redirect('/login');
-}
-
-export async function getSession() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
-}
-
-export async function getProfile() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-
-  return data;
 }
