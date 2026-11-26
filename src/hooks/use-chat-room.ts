@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { createClient } from '@/lib/supabase/client';
 import { useChatStore } from '@/store/chat-store';
 import { useRealtimeMessages } from '@/hooks/use-realtime';
+import { getMe } from '@/features/auth/actions';
 import {
   getMessages,
   sendMessage as sendMessageAction,
@@ -13,7 +13,7 @@ import {
   deleteMessage as deleteMessageAction,
   markAsRead,
 } from '@/features/chat/actions';
-import type { Attachment, Message, Profile } from '@/types/database';
+import type { Profile } from '@/types/database';
 import type { MessageWithSender, MessageGroup } from '@/types/chat';
 
 const EMPTY_MESSAGES: MessageWithSender[] = [];
@@ -31,12 +31,7 @@ function createPlaceholderSender(senderId: string): Profile {
   };
 }
 
-function isFileMessage(message: Message): boolean {
-  return message.type === 'image' || message.type === 'file';
-}
-
 export function useChatRoom() {
-  const supabase = createClient();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loadedConversationId, setLoadedConversationId] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(0);
@@ -61,16 +56,20 @@ export function useChatRoom() {
   useEffect(() => {
     let cancelled = false;
 
-    void supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!cancelled) {
-        setCurrentUserId(user?.id ?? null);
-      }
-    });
+    void getMe()
+      .then((profile) => {
+        if (!cancelled) {
+          setCurrentUserId(profile?.id ?? null);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to resolve current user:', error);
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [supabase]);
+  }, []);
 
   // Fetch messages when the conversation or page changes. A monotonically
   // increasing request id (plus a conversation check) guarantees that a slow
@@ -141,100 +140,57 @@ export function useChatRoom() {
     }
   }, [conversationId]);
 
-  // Realtime insert/update events merge into the message list by id. Own
+  // Realtime insert/update events merge into the message list by id. The SSE
+  // payload already includes the sender profile and attachments, and own
   // messages from another tab are included because we no longer skip events
   // based on `sender_id`.
   const mergeMessage = useCallback(
-    (message: Message) => {
+    (message: MessageWithSender) => {
       if (!conversationId || message.conversation_id !== conversationId) return;
 
       setMessages((previous) => {
         const index = previous.findIndex((item) => item.id === message.id);
 
         if (index === -1) {
-          return [
-            ...previous,
-            { ...message, sender: createPlaceholderSender(message.sender_id) },
-          ];
+          return [...previous, message];
         }
 
         const next = [...previous];
-        next[index] = { ...previous[index], ...message };
+        next[index] = {
+          ...previous[index],
+          ...message,
+          sender: message.sender ?? previous[index].sender,
+          attachments: message.attachments ?? previous[index].attachments,
+        };
         return next;
       });
     },
     [conversationId, setMessages],
   );
 
-  const hydrateMessage = useCallback(
-    async (message: Message) => {
-      const activeConversationId = conversationId;
-      if (!activeConversationId) return;
-
-      const [{ data: sender }, attachmentsResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', message.sender_id).maybeSingle(),
-        isFileMessage(message)
-          ? supabase.from('attachments').select('*').eq('message_id', message.id)
-          : Promise.resolve({ data: [] as Attachment[] }),
-      ]);
-
-      if (useChatStore.getState().conversationId !== activeConversationId) return;
-
-      const attachments = (attachmentsResult.data ?? []) as Attachment[];
-
-      setMessages((previous) => {
-        const index = previous.findIndex((item) => item.id === message.id);
-        if (index === -1) return previous;
-
-        const next = [...previous];
-        next[index] = {
-          ...previous[index],
-          ...(sender ? { sender } : {}),
-          ...(isFileMessage(message) ? { attachments } : {}),
-        };
-        return next;
-      });
-    },
-    [conversationId, setMessages, supabase],
-  );
-
   const handleNewMessage = useCallback(
-    (message: Message) => {
+    (message: MessageWithSender) => {
       mergeMessage(message);
-      void hydrateMessage(message);
 
       if (conversationId) {
         void markAsRead(conversationId);
       }
     },
-    [conversationId, hydrateMessage, mergeMessage],
+    [conversationId, mergeMessage],
   );
 
   const handleMessageUpdate = useCallback(
-    (message: Message) => {
+    (message: MessageWithSender) => {
       mergeMessage(message);
-
-      // A realtime update can arrive for a file message that was never seen
-      // locally (for example after a reconnect), so hydrate it as well.
-      if (isFileMessage(message)) {
-        void hydrateMessage(message);
-      }
     },
-    [hydrateMessage, mergeMessage],
+    [mergeMessage],
   );
 
   const handleMessageDelete = useCallback(
-    (message: Message) => {
-      if (!conversationId) return;
-      // DELETE payloads only include the primary key by default, so the
-      // conversation id can be absent. Fall back to removing by message id.
-      if (message.conversation_id && message.conversation_id !== conversationId) {
-        return;
-      }
-
-      setMessages((previous) => previous.filter((item) => item.id !== message.id));
+    (messageId: string) => {
+      setMessages((previous) => previous.filter((item) => item.id !== messageId));
     },
-    [conversationId, setMessages],
+    [setMessages],
   );
 
   useRealtimeMessages({
