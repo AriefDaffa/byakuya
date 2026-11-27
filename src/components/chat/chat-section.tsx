@@ -139,7 +139,7 @@ export function ChatSection() {
                     type="button"
                     onClick={incrementPage}
                     disabled={isFetching}
-                    className="pixel-btn bg-card font-pixel-mono cursor-pointer px-4 py-2 text-[10px] tracking-wide uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                    className="pixel-btn bg-card cursor-pointer px-4 py-2 font-sans text-xs font-semibold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isFetching ? 'Loading...' : 'Load older messages'}
                   </button>
@@ -149,7 +149,7 @@ export function ChatSection() {
                 <Fragment key={group.messages[0]?.id ?? idx}>
                   {dateLabel && (
                     <div className="my-4 flex w-full items-center justify-center">
-                      <span className="pixel-box bg-card font-pixel-mono px-2.5 py-1 text-[10px]">
+                      <span className="pixel-box bg-card px-3 py-1 font-sans text-xs font-semibold tracking-wide">
                         {dateLabel}
                       </span>
                     </div>
