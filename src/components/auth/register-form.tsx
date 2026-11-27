@@ -10,7 +10,12 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
 const inputClassName =
-  'w-full rounded-none border-2 border-[#0b0e14] bg-[#f4f7fb] px-3 py-2.5 font-sans text-sm text-[#0f172a] shadow-[inset_2px_2px_0_rgba(0,0,0,0.16)] outline-none placeholder:text-[#64748b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1b5e8a]';
+  'h-11 w-full rounded-none border-2 border-[#0b0e14] bg-[#f4f7fb] px-3.5 font-sans text-base text-[#0f172a] shadow-[inset_2px_2px_0_rgba(0,0,0,0.22)] outline-none placeholder:text-[#64748b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1b5e8a]';
+
+const labelClassName = 'font-sans text-base font-semibold text-[#0b1220]';
+
+const submitButtonClassName =
+  'pixel-btn relative mt-2 h-12 w-full rounded-none bg-[#1b5e8a] font-sans text-lg font-bold text-white before:pointer-events-none before:absolute before:inset-x-0.5 before:top-0.5 before:h-0.5 before:bg-white/40 hover:bg-[#2271a6] disabled:cursor-not-allowed disabled:opacity-60';
 
 export function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -50,20 +55,17 @@ export function RegisterForm() {
   return (
     <div className="w-full space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="font-sans text-2xl font-bold tracking-tight text-[#0f172a]">
+        <h1 className="font-sans text-3xl font-extrabold tracking-tight text-[#0b1220]">
           Register to Byakuya
         </h1>
-        <p className="font-sans text-sm text-[#334155]">
+        <p className="font-sans text-base text-[#334155]">
           Create your account to get started.
         </p>
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <label
-            htmlFor="name"
-            className="font-sans text-sm font-semibold text-[#0f172a]"
-          >
+          <label htmlFor="name" className={labelClassName}>
             Name
           </label>
           <input
@@ -82,10 +84,7 @@ export function RegisterForm() {
         </div>
 
         <div className="space-y-2">
-          <label
-            htmlFor="email"
-            className="font-sans text-sm font-semibold text-[#0f172a]"
-          >
+          <label htmlFor="email" className={labelClassName}>
             Email
           </label>
           <input
@@ -104,10 +103,7 @@ export function RegisterForm() {
         </div>
 
         <div className="space-y-2">
-          <label
-            htmlFor="password"
-            className="font-sans text-sm font-semibold text-[#0f172a]"
-          >
+          <label htmlFor="password" className={labelClassName}>
             Password
           </label>
           <input
@@ -125,16 +121,12 @@ export function RegisterForm() {
           )}
         </div>
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="pixel-btn mt-2 w-full rounded-none bg-[#1b5e8a] py-2.5 font-sans text-base font-semibold text-white hover:bg-[#2171a6] disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <button type="submit" disabled={isLoading} className={submitButtonClassName}>
           {isLoading ? 'Creating account...' : 'Sign Up'}
         </button>
       </form>
 
-      <p className="text-center font-sans text-sm text-[#334155]">
+      <p className="text-center font-sans text-base text-[#334155]">
         Already have an account?{' '}
         <Link
           href="/login"
