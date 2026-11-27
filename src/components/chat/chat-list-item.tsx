@@ -24,26 +24,26 @@ export function ChatListItemComponent({
       type="button"
       onClick={onClick}
       className={cn(
-        'hover:bg-accent relative flex h-[76px] w-full items-center gap-3 border-b border-[var(--pixel-frame)] px-3.5 py-2 text-left transition-colors',
+        'hover:bg-accent relative flex min-h-[84px] w-full items-center gap-3 border-b-2 border-[#0b0e14]/70 px-4 py-2.5 text-left transition-colors',
         isActive && 'bg-accent',
       )}
       aria-label={`Chat with ${otherUser?.name}`}
     >
       {isActive && (
         <span
-          className="absolute inset-y-0 left-0 w-1 bg-[var(--unread)]"
+          className="absolute inset-y-0 left-0 w-1.5 bg-[var(--unread)]"
           aria-hidden="true"
         />
       )}
 
       <div className="relative shrink-0">
-        <Avatar className="size-13">
+        <Avatar className="size-12 border-2 border-[#090c12] shadow-[2px_2px_0_#07090e]">
           <AvatarImage src={otherUser?.avatar_url || ''} alt={otherUser?.name || ''} />
           <AvatarFallback>{otherUser?.name || 'Byakuya'}</AvatarFallback>
         </Avatar>
         {isOnline && (
           <span
-            className="absolute -right-0.5 -bottom-0.5 size-3 border-2 border-[var(--pixel-frame)] bg-[var(--online)]"
+            className="absolute -right-0.5 -bottom-0.5 size-3.5 border-2 border-[#090c12] bg-[var(--online)]"
             aria-hidden="true"
           />
         )}
@@ -55,19 +55,19 @@ export function ChatListItemComponent({
             {otherUser?.name}
           </h3>
           {lastMessage && (
-            <span className="text-muted-foreground font-mono text-[11px] whitespace-nowrap tabular-nums">
+            <span className="text-muted-foreground font-mono text-xs whitespace-nowrap tabular-nums">
               {formatChatTimestamp(lastMessage.created_at)}
             </span>
           )}
         </div>
-        <div className="mt-0.5 flex items-center justify-between gap-2">
+        <div className="mt-1 flex items-center justify-between gap-2">
           <p className="text-muted-foreground truncate font-sans text-sm leading-snug">
             {lastMessage?.is_deleted
               ? 'Message deleted'
               : lastMessage?.content || 'No messages yet'}
           </p>
           {unreadCount > 0 && (
-            <span className="pixel-box ml-1 inline-flex h-5 min-w-5 shrink-0 items-center justify-center bg-[var(--unread)] px-1 font-mono text-[11px] font-bold text-[#090c12] tabular-nums">
+            <span className="pixel-box ml-1 inline-flex h-6 min-w-6 shrink-0 items-center justify-center bg-[var(--unread)] px-1 font-mono text-xs font-bold text-[#090c12] tabular-nums">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
