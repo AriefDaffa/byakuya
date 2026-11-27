@@ -1,4 +1,9 @@
-import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
+import { Pool, types, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
+
+// Return TIMESTAMP (1114) and TIMESTAMPTZ (1184) as ISO-8601 strings so
+// Server Actions, SSE payloads, and TypeScript `string` fields stay consistent.
+types.setTypeParser(1114, (val) => new Date(`${val}Z`).toISOString());
+types.setTypeParser(1184, (val) => new Date(val).toISOString());
 
 /**
  * A single connection pool per process. Next.js hot reloading can re-evaluate
