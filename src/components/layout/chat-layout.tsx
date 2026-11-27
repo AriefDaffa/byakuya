@@ -43,26 +43,26 @@ export function ChatLayout({
       {/* Chunky indigo OS title bar with raised 3D window buttons, as in R01. */}
       <div className="hidden h-10 items-center justify-between border-b-2 border-[#090c12] bg-[#283268] px-4 text-[#f8fafc] shadow-[inset_0_2px_0_rgba(255,255,255,0.22)] md:flex">
         <div className="flex items-center gap-2">
-          <PixelCrestIcon className="size-5 shrink-0 text-[#e2c275]" />
-          <span className="font-pixel text-base leading-none font-bold [text-shadow:1px_1px_0_#0b1220]">
+          <PixelCrestIcon className="size-6 shrink-0 text-[#e2c275]" />
+          <span className="font-pixel text-lg leading-none font-bold tracking-wide [text-shadow:1px_1px_0_#0b1220]">
             Byakuya
           </span>
         </div>
         <div className="flex items-center gap-1.5" aria-hidden="true">
-          <span className="flex h-[22px] w-[22px] items-center justify-center border-2 border-[#090c12] bg-[#46516b] shadow-[inset_2px_2px_0_#8b98b5,inset_-2px_-2px_0_#2c3446,2px_2px_0_#0b0e14]">
+          <span className="flex h-[22px] w-[22px] items-center justify-center border-2 border-[#090c12] bg-[#b8c1d1] shadow-[inset_2px_2px_0_#eef4ff,inset_-2px_-2px_0_#64748b,2px_2px_0_#0b0e14]">
             <span className="h-[2px] w-2.5 bg-[#0e131d]" />
           </span>
-          <span className="flex h-[22px] w-[22px] items-center justify-center border-2 border-[#090c12] bg-[#46516b] shadow-[inset_2px_2px_0_#8b98b5,inset_-2px_-2px_0_#2c3446,2px_2px_0_#0b0e14]">
+          <span className="flex h-[22px] w-[22px] items-center justify-center border-2 border-[#090c12] bg-[#b8c1d1] shadow-[inset_2px_2px_0_#eef4ff,inset_-2px_-2px_0_#64748b,2px_2px_0_#0b0e14]">
             <span className="size-2.5 border-2 border-[#0e131d]" />
           </span>
-          <span className="flex h-[22px] w-[22px] items-center justify-center border-2 border-[#090c12] bg-[#8a3d3d] shadow-[inset_2px_2px_0_#c25a5a,inset_-2px_-2px_0_#5c2626,2px_2px_0_#0b0e14]">
-            <X className="size-3 text-[#2a0f0f]" strokeWidth={3} aria-hidden="true" />
+          <span className="flex h-[22px] w-[22px] items-center justify-center border-2 border-[#090c12] bg-[#b8c1d1] shadow-[inset_2px_2px_0_#eef4ff,inset_-2px_-2px_0_#64748b,2px_2px_0_#0b0e14]">
+            <X className="size-3 text-[#0e131d]" strokeWidth={3} aria-hidden="true" />
           </span>
         </div>
       </div>
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
-        <div className="flex min-h-0 w-full shrink-0 md:w-[320px] lg:w-[350px]">
+        <div className="flex min-h-0 w-full shrink-0 md:w-[300px] lg:w-[320px]">
           <div className="min-h-0 w-full">{sidebar}</div>
         </div>
 

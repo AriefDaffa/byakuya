@@ -25,7 +25,8 @@ export function ChatListItemComponent({
       onClick={onClick}
       className={cn(
         'hover:bg-accent relative flex min-h-[84px] w-full items-center gap-3 border-b-2 border-[#0b0e14]/70 px-4 py-2.5 text-left transition-colors',
-        isActive && 'bg-[#2a3352] dark:bg-[#2a3352]',
+        isActive &&
+          'bg-[#2c3766] shadow-[inset_0_2px_0_rgba(255,255,255,0.14)] dark:bg-[#2c3766]',
       )}
       aria-label={`Chat with ${otherUser?.name}`}
     >
@@ -51,7 +52,7 @@ export function ChatListItemComponent({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="truncate font-sans text-base leading-tight font-semibold">
+          <h3 className="truncate font-sans text-base leading-tight font-bold">
             {otherUser?.name}
           </h3>
           {lastMessage && (

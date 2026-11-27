@@ -70,7 +70,7 @@ describe('MessageBubble', () => {
 
     const text = screen.getByText('Hello!');
     expect(text).toBeInTheDocument();
-    expect(text.className).toContain('text-base');
+    expect(text.className).toContain('text-[17px]');
     expect(text.className).toContain('leading-snug');
     expect(text.className).toContain('font-sans');
 
@@ -119,7 +119,7 @@ describe('MessageBubble', () => {
     expect(meta.className).toContain('font-mono');
     expect(meta.className).toContain('text-xs');
     expect(meta.className).toContain('tabular-nums');
-    expect(meta.className).toContain('opacity-75');
+    expect(meta.className).toContain('opacity-80');
   });
 
   it('renders the edited indicator next to the internal timestamp', () => {

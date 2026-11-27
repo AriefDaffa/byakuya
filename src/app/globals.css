@@ -101,12 +101,12 @@
   --sidebar-foreground: #eef2ff;
   --sidebar-border: #0a0d14;
   --pixel-frame: #090c12;
-  --pixel-highlight: #3a4563;
+  --pixel-highlight: #4c5a7d;
   --pixel-shadow: #07090e;
-  --bubble-sent: #3144c8;
+  --bubble-sent: #3346cf;
   --bubble-sent-foreground: #f8fafc;
-  --bubble-received: #283044;
-  --bubble-received-foreground: #eef2ff;
+  --bubble-received: #313b54;
+  --bubble-received-foreground: #f1f5ff;
   --online: #22c55e;
   --unread: #f59e0b;
 }
@@ -155,8 +155,9 @@
 .pixel-btn {
   border: 2px solid var(--pixel-frame);
   box-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.28),
-    inset -1px -1px 0 rgba(0, 0, 0, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.34),
+    inset 2px 0 0 rgba(255, 255, 255, 0.16),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.38),
     3px 3px 0 var(--pixel-shadow);
   transition:
     transform 80ms steps(2),
@@ -178,44 +179,78 @@
 .pixel-input {
   border: 2px solid var(--pixel-frame);
   background-color: var(--input);
-  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.22);
+  box-shadow:
+    inset 0 3px 0 rgba(0, 0, 0, 0.28),
+    inset 2px 0 0 rgba(0, 0, 0, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .pixel-bubble-sent {
   position: relative;
+  margin-right: 6px;
   background-color: var(--bubble-sent);
   color: var(--bubble-sent-foreground);
-  border: 2px solid var(--pixel-frame);
+  border: none;
   box-shadow:
-    inset 0 2px 0 #6374f2,
-    inset 2px 0 0 rgba(255, 255, 255, 0.2),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.35),
-    4px 4px 0 var(--pixel-shadow);
+    inset 0 3px 0 #7b8cff,
+    inset 2px 0 0 rgba(255, 255, 255, 0.22),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.36),
+    0 -3px 0 var(--pixel-frame),
+    0 3px 0 var(--pixel-frame),
+    -3px 0 0 var(--pixel-frame),
+    3px 0 0 var(--pixel-frame),
+    3px 6px 0 var(--pixel-shadow),
+    6px 3px 0 var(--pixel-shadow);
 }
 
 .pixel-bubble-sent::after {
   content: '';
   position: absolute;
-  right: -8px;
-  bottom: 2px;
-  width: 8px;
-  height: 8px;
+  right: -6px;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
   background-color: var(--bubble-sent);
-  border-top: 2px solid var(--pixel-frame);
-  border-right: 2px solid var(--pixel-frame);
-  border-bottom: 2px solid var(--pixel-frame);
-  box-shadow: 3px 3px 0 var(--pixel-shadow);
+  box-shadow:
+    -3px -3px 0 var(--bubble-sent),
+    0 -3px 0 var(--pixel-frame),
+    3px 0 0 var(--pixel-frame),
+    0 3px 0 var(--pixel-frame),
+    3px 3px 0 var(--pixel-shadow);
 }
 
 .pixel-bubble-received {
   position: relative;
+  margin-left: 6px;
   background-color: var(--bubble-received);
   color: var(--bubble-received-foreground);
-  border: 2px solid var(--pixel-frame);
+  border: none;
   box-shadow:
-    inset 2px 2px 0 var(--pixel-highlight),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.28),
-    4px 4px 0 var(--pixel-shadow);
+    inset 0 3px 0 #62739e,
+    inset 2px 0 0 var(--pixel-highlight),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.34),
+    0 -3px 0 var(--pixel-frame),
+    0 3px 0 var(--pixel-frame),
+    -3px 0 0 var(--pixel-frame),
+    3px 0 0 var(--pixel-frame),
+    3px 6px 0 var(--pixel-shadow),
+    6px 3px 0 var(--pixel-shadow);
+}
+
+.pixel-bubble-received::after {
+  content: '';
+  position: absolute;
+  left: -6px;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background-color: var(--bubble-received);
+  box-shadow:
+    3px -3px 0 var(--bubble-received),
+    0 -3px 0 var(--pixel-frame),
+    -3px 0 0 var(--pixel-frame),
+    0 3px 0 var(--pixel-frame),
+    -3px 3px 0 var(--pixel-shadow);
 }
 
 .pixel-bubble-received::after {

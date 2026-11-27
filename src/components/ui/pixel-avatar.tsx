@@ -6,27 +6,32 @@ interface PixelAvatarProps {
 }
 
 const HAIR_PALETTE = [
-  ['#3b2f63', '#53438a'],
-  ['#7c3d12', '#a85720'],
-  ['#b45309', '#d97706'],
-  ['#2d3748', '#4a5568'],
-  ['#5b3a70', '#7e5299'],
-  ['#9a6b10', '#c48f1d'],
+  ['#3b2f63', '#61509e'],
+  ['#7c3d12', '#b55e24'],
+  ['#a14d09', '#e0821f'],
+  ['#283244', '#4d5c78'],
+  ['#5b3a70', '#8c5ba8'],
+  ['#8f6310', '#d19826'],
 ];
 const SKIN_PALETTE = [
-  ['#f5cba7', '#dba67b'],
-  ['#e0ac69', '#c28a48'],
-  ['#c68642', '#a3682b'],
-  ['#f8d9c0', '#deb597'],
+  ['#f7cfa9', '#d99e70'],
+  ['#e3b074', '#be8345'],
+  ['#c9894b', '#9e622b'],
+  ['#fae0c8', '#d9ae8d'],
 ];
 const SHIRT_PALETTE = [
-  ['#2b459e', '#4161cf'],
-  ['#1f7a5c', '#2ea37c'],
-  ['#9e3b3b', '#c75252'],
-  ['#475569', '#64748b'],
-  ['#8a5a19', '#b57824'],
+  ['#2b459e', '#4b6ce0'],
+  ['#1f7a5c', '#32b388'],
+  ['#9e3b3b', '#cf5757'],
+  ['#475569', '#6e8099'],
+  ['#8a5a19', '#c28329'],
 ];
-const BG_PALETTE = ['#252d42', '#1f293d', '#2b3148', '#22333b'];
+const BG_PALETTE = [
+  ['#1d5b6e', '#28778f'],
+  ['#1e526b', '#2b7091'],
+  ['#225e63', '#2e7e85'],
+  ['#274f70', '#356a96'],
+];
 
 function hashString(str: string): number {
   let h = 2166136261;
@@ -38,7 +43,8 @@ function hashString(str: string): number {
 }
 
 /**
- * Deterministic 16x16 16-bit RPG character portrait SVG with shading and outline.
+ * Deterministic 16x16 16-bit RPG character portrait SVG with teal frame,
+ * shaded hair/skin/tunic, and expressive eyes.
  */
 export function PixelAvatarSvg({ name, className }: PixelAvatarProps) {
   const p = useMemo(() => {
@@ -46,8 +52,10 @@ export function PixelAvatarSvg({ name, className }: PixelAvatarProps) {
     const hair = HAIR_PALETTE[(seed >>> 3) % HAIR_PALETTE.length];
     const skin = SKIN_PALETTE[(seed >>> 6) % SKIN_PALETTE.length];
     const shirt = SHIRT_PALETTE[(seed >>> 9) % SHIRT_PALETTE.length];
+    const bg = BG_PALETTE[seed % BG_PALETTE.length];
     return {
-      bg: BG_PALETTE[seed % BG_PALETTE.length],
+      bgDark: bg[0],
+      bgLight: bg[1],
       hairDark: hair[0],
       hairLight: hair[1],
       skin: skin[0],
@@ -55,6 +63,7 @@ export function PixelAvatarSvg({ name, className }: PixelAvatarProps) {
       shirtDark: shirt[0],
       shirtLight: shirt[1],
       hasBeard: ((seed >>> 12) & 1) === 1,
+      hasCollar: ((seed >>> 13) & 1) === 1,
     };
   }, [name]);
 
@@ -65,38 +74,70 @@ export function PixelAvatarSvg({ name, className }: PixelAvatarProps) {
       className={className}
       aria-hidden="true"
     >
-      <rect width="16" height="16" fill={p.bg} />
-      {/* Subtle top-left background bevel */}
-      <rect x="0" y="0" width="16" height="1" fill="#ffffff" opacity="0.1" />
-      {/* Shoulders / tunic */}
-      <rect x="2" y="12" width="12" height="4" fill="#0f172a" />
-      <rect x="3" y="12" width="10" height="4" fill={p.shirtDark} />
-      <rect x="4" y="12" width="8" height="2" fill={p.shirtLight} />
-      <rect x="6" y="12" width="4" height="4" fill="#e2e8f0" opacity="0.2" />
-      {/* Neck */}
+      {/* Teal RPG portrait backdrop with subtle pixel vignette */}
+      <rect width="16" height="16" fill={p.bgDark} />
+      <rect x="1" y="1" width="14" height="10" fill={p.bgLight} />
+      <rect x="0" y="0" width="16" height="1" fill="#8ce0f5" opacity="0.28" />
+      <rect x="0" y="0" width="1" height="16" fill="#8ce0f5" opacity="0.18" />
+
+      {/* Shoulders / RPG tunic */}
+      <rect x="1" y="12" width="14" height="4" fill="#0b0e14" />
+      <rect x="2" y="12" width="12" height="4" fill={p.shirtDark} />
+      <rect x="3" y="12" width="10" height="2" fill={p.shirtLight} />
+      {p.hasCollar ? (
+        <>
+          <rect x="5" y="12" width="2" height="2" fill="#e2e8f0" />
+          <rect x="9" y="12" width="2" height="2" fill="#e2e8f0" />
+          <rect x="7" y="13" width="2" height="3" fill="#0b0e14" opacity="0.35" />
+        </>
+      ) : (
+        <rect x="6" y="12" width="4" height="4" fill="#e2e8f0" opacity="0.22" />
+      )}
+
+      {/* Neck & chin shadow */}
       <rect x="6" y="11" width="4" height="1" fill={p.skinShade} />
-      {/* Head outline */}
-      <rect x="4" y="2" width="8" height="9" fill="#0f172a" />
-      <rect x="3" y="4" width="10" height="6" fill="#0f172a" />
-      {/* Face */}
-      <rect x="4" y="4" width="8" height="7" fill={p.skin} />
+
+      {/* Head dark pixel outline */}
+      <rect x="4" y="1" width="8" height="10" fill="#0b0e14" />
+      <rect x="3" y="3" width="10" height="7" fill="#0b0e14" />
+
+      {/* Ears */}
+      <rect x="3" y="6" width="1" height="2" fill={p.skinShade} />
+      <rect x="12" y="6" width="1" height="2" fill={p.skinShade} />
+
+      {/* Face base + lower jaw shade */}
+      <rect x="4" y="3" width="8" height="8" fill={p.skin} />
       <rect x="4" y="10" width="8" height="1" fill={p.skinShade} />
-      {/* Hair */}
-      <rect x="4" y="2" width="8" height="2" fill={p.hairDark} />
-      <rect x="5" y="2" width="5" height="1" fill={p.hairLight} />
-      <rect x="3" y="3" width="2" height="5" fill={p.hairDark} />
-      <rect x="11" y="3" width="2" height="5" fill={p.hairDark} />
-      <rect x="5" y="4" width="4" height="1" fill={p.hairDark} />
-      {/* Eyes */}
-      <rect x="5" y="6" width="1" height="2" fill="#0f172a" />
-      <rect x="10" y="6" width="1" height="2" fill="#0f172a" />
-      <rect x="5" y="6" width="1" height="1" fill="#ffffff" opacity="0.6" />
-      <rect x="10" y="6" width="1" height="1" fill="#ffffff" opacity="0.6" />
+      <rect x="4" y="9" width="1" height="1" fill={p.skinShade} />
+      <rect x="11" y="9" width="1" height="1" fill={p.skinShade} />
+
+      {/* Hair crown + bangs + side locks */}
+      <rect x="4" y="1" width="8" height="3" fill={p.hairDark} />
+      <rect x="5" y="2" width="6" height="1" fill={p.hairLight} />
+      <rect x="3" y="2" width="2" height="5" fill={p.hairDark} />
+      <rect x="11" y="2" width="2" height="5" fill={p.hairDark} />
+      <rect x="4" y="4" width="2" height="1" fill={p.hairDark} />
+      <rect x="7" y="3" width="3" height="1" fill={p.hairLight} />
+
+      {/* Eyes with white sclera & catchlight */}
+      <rect x="5" y="6" width="2" height="2" fill="#f8fafc" />
+      <rect x="9" y="6" width="2" height="2" fill="#f8fafc" />
+      <rect x="6" y="6" width="1" height="2" fill="#0b0e14" />
+      <rect x="10" y="6" width="1" height="2" fill="#0b0e14" />
+      <rect x="6" y="6" width="1" height="1" fill="#ffffff" opacity="0.8" />
+      <rect x="10" y="6" width="1" height="1" fill="#ffffff" opacity="0.8" />
+
+      {/* Cheek blush / nose pixel */}
+      <rect x="7" y="8" width="2" height="1" fill={p.skinShade} opacity="0.55" />
+
       {/* Mouth / beard */}
       {p.hasBeard ? (
-        <rect x="5" y="9" width="6" height="2" fill={p.hairDark} />
+        <>
+          <rect x="5" y="9" width="6" height="2" fill={p.hairDark} />
+          <rect x="7" y="9" width="2" height="1" fill={p.skin} />
+        </>
       ) : (
-        <rect x="7" y="9" width="2" height="1" fill="#a86844" />
+        <rect x="7" y="9" width="2" height="1" fill="#9c5b3b" />
       )}
     </svg>
   );

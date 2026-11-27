@@ -9,12 +9,12 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 const inputClassName =
-  'h-10 w-full rounded-none border-2 border-[#0b0e14] bg-[#e6edf5] px-3.5 font-sans text-base text-[#0f172a] shadow-[inset_2px_2px_0_rgba(0,0,0,0.22)] outline-none placeholder:text-[#64748b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1b5e8a]';
+  'h-10 w-full rounded-none border-2 border-[#0b0e14] bg-[#dce3ee] px-3.5 font-sans text-base text-[#0f172a] shadow-[inset_3px_3px_0_rgba(15,23,42,0.2)] outline-none placeholder:text-[#64748b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1b5e8a]';
 
-const labelClassName = 'font-sans text-sm font-semibold text-[#0b1220]';
+const labelClassName = 'font-sans text-sm font-bold text-[#0b1220]';
 
 const submitButtonClassName =
-  'pixel-btn relative mt-1 h-11 w-full rounded-none bg-[#1b5e8a] font-sans text-base font-bold text-white before:pointer-events-none before:absolute before:inset-x-0.5 before:top-0.5 before:h-0.5 before:bg-white/40 hover:bg-[#2271a6] disabled:cursor-not-allowed disabled:opacity-60';
+  'pixel-btn relative mt-1 h-11 w-full rounded-none bg-[#195e8a] font-sans text-lg font-bold tracking-wide text-white shadow-[inset_0_3px_0_#66bef2,inset_-2px_-2px_0_#0d3652,4px_4px_0_#07090e] hover:bg-[#1e70a3] disabled:cursor-not-allowed disabled:opacity-60';
 
 /**
  * `redirect()` inside a server action rejects the client promise with a
@@ -68,10 +68,10 @@ export function LoginForm() {
   return (
     <div className="w-full space-y-4">
       <div className="space-y-1 text-center">
-        <h1 className="font-sans text-2xl font-extrabold tracking-tight text-[#0b1220]">
+        <h1 className="font-sans text-3xl font-extrabold tracking-tight text-[#0b1220]">
           Welcome Back to Byakuya
         </h1>
-        <p className="font-sans text-sm text-[#1e293b]">
+        <p className="font-sans text-base text-[#334155]">
           Enter your email and password to continue.
         </p>
       </div>
@@ -124,7 +124,7 @@ export function LoginForm() {
         Don&apos;t have an account?{' '}
         <Link
           href="/register"
-          className="font-semibold text-[#1b5e8a] underline decoration-2 underline-offset-4 hover:text-[#2171a6]"
+          className="font-bold text-[#0b1220] underline decoration-2 underline-offset-4 hover:text-[#195e8a]"
         >
           Register
         </Link>

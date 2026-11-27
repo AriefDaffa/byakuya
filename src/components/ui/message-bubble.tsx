@@ -85,9 +85,9 @@ function AttachmentCard({ attachment }: { attachment: Attachment }) {
 
   return (
     <div className="flex w-full max-w-full min-w-[240px] items-center gap-3">
-      <PixelFileIcon className="size-9 shrink-0" />
+      <PixelFileIcon className="size-10 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-base font-medium text-current">
+        <p className="truncate font-sans text-[15px] font-semibold text-current">
           {attachment.file_name}
         </p>
         <p className="font-mono text-xs tabular-nums opacity-75">
@@ -214,7 +214,7 @@ function BubbleMeta({ message }: { message: MessageWithSender }) {
   if (!message.is_edited && !timestamp) return null;
 
   return (
-    <span className="ml-auto shrink-0 self-end font-mono text-xs leading-none tabular-nums opacity-75">
+    <span className="ml-auto shrink-0 self-end font-mono text-xs leading-none tabular-nums opacity-80">
       {message.is_edited && <span className="mr-1.5">(edited)</span>}
       {timestamp}
     </span>
@@ -337,7 +337,7 @@ export function MessageBubble({
 
             {/* Text content */}
             {showTextContent && (
-              <p className="max-w-full font-sans text-base leading-snug break-words whitespace-pre-wrap">
+              <p className="max-w-full font-sans text-[17px] leading-snug font-medium break-words whitespace-pre-wrap sm:text-[18px]">
                 {message.content}
               </p>
             )}

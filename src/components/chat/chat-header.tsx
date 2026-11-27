@@ -1,6 +1,7 @@
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PixelAddContactIcon, PixelChatThreadIcon } from '@/components/ui/pixel-icons';
 import { cn } from '@/lib/utils';
 
 interface ChatHeaderProps {
@@ -23,7 +24,7 @@ export function ChatHeader({
   return (
     <header
       className={cn(
-        'flex min-h-[64px] items-center justify-between gap-3 border-b-2 border-[#090c12] bg-[#242b52] px-4 py-3 text-[#f8fafc] shadow-[inset_0_-2px_0_rgba(0,0,0,0.25)] max-md:pl-16',
+        'flex min-h-[68px] items-center justify-between gap-3 border-b-2 border-[#090c12] bg-[#272f59] px-4 py-3 text-[#f8fafc] shadow-[inset_0_2px_0_rgba(255,255,255,0.16),inset_0_-2px_0_rgba(0,0,0,0.3)] max-md:pl-16',
         className,
       )}
     >
@@ -33,21 +34,14 @@ export function ChatHeader({
         onClick={onProfileClick}
         aria-label={`View ${name}'s profile`}
       >
-        <Avatar className="size-11 shrink-0 border-2 border-[#090c12] shadow-[2px_2px_0_#07090e]">
+        <Avatar className="size-12 shrink-0 border-2 border-[#090c12] shadow-[2px_2px_0_#07090e]">
           <AvatarImage src={avatar} alt={name} />
           <AvatarFallback>{name}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 text-left">
-          <h2 className="truncate font-sans text-lg leading-tight font-bold">{name}</h2>
+          <h2 className="truncate font-sans text-xl leading-tight font-bold">{name}</h2>
           {status && (
-            <span
-              className={cn(
-                'mt-1 inline-flex items-center gap-1.5 border-2 px-2 py-0.5',
-                isOnline
-                  ? 'border-[#0d2016] bg-[#132b1e]'
-                  : 'border-[#101522] bg-[#2b3348]',
-              )}
-            >
+            <span className="mt-0.5 inline-flex items-center gap-1.5">
               <span
                 className={cn(
                   'size-2 shrink-0',
@@ -57,8 +51,8 @@ export function ChatHeader({
               />
               <span
                 className={cn(
-                  'font-sans text-xs leading-none font-semibold tracking-wide',
-                  isOnline ? 'text-[var(--online)]' : 'text-[#aab4cc]',
+                  'font-sans text-sm leading-none font-semibold',
+                  isOnline ? 'text-[var(--online)]' : 'text-[#9fb0d4]',
                 )}
               >
                 {status}
@@ -71,6 +65,22 @@ export function ChatHeader({
       <div className="flex items-center gap-2">
         <button
           type="button"
+          onClick={onProfileClick}
+          className="pixel-btn hidden size-10 shrink-0 items-center justify-center border-[#090c12] bg-[#2f3a63] text-[#f8fafc] hover:bg-[#3b4877] sm:inline-flex"
+          aria-label="Contact info"
+        >
+          <PixelAddContactIcon className="size-5" />
+        </button>
+        <button
+          type="button"
+          className="pixel-btn hidden size-10 shrink-0 items-center justify-center border-[#090c12] bg-[#2f3a63] text-[#f8fafc] hover:bg-[#3b4877] sm:inline-flex"
+          aria-label="Chat thread"
+        >
+          <PixelChatThreadIcon className="size-5" />
+        </button>
+        <button
+          type="button"
+          onClick={onProfileClick}
           className="pixel-btn inline-flex size-10 shrink-0 items-center justify-center border-[#090c12] bg-[#2f3a63] text-[#f8fafc] hover:bg-[#3b4877]"
           aria-label="More options"
         >

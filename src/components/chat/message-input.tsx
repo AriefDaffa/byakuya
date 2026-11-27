@@ -84,7 +84,7 @@ export function MessageInput({
         </div>
       )}
 
-      <div className="flex items-center gap-2 border-t-2 border-[#090c12] bg-[#1d2336] p-3.5 sm:gap-2.5 sm:p-4">
+      <div className="flex items-center gap-2 border-t-2 border-[#090c12] bg-[#222847] p-3.5 shadow-[inset_0_2px_0_rgba(255,255,255,0.12)] sm:gap-2.5 sm:p-4">
         {/* Attachment button */}
         {onSendAttachment && !editingMessage && (
           <>
@@ -100,7 +100,7 @@ export function MessageInput({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
-              className="pixel-btn bg-secondary text-secondary-foreground inline-flex size-11 shrink-0 items-center justify-center border-[#090c12] disabled:opacity-50"
+              className="pixel-btn bg-secondary text-secondary-foreground inline-flex size-12 shrink-0 items-center justify-center border-[#090c12] disabled:opacity-50"
               aria-label="Attach file"
             >
               <PixelClipIcon className="size-6" />
@@ -110,8 +110,8 @@ export function MessageInput({
 
         <input
           type="text"
-          placeholder={editingMessage ? 'Edit your message...' : 'Write a message...'}
-          className="pixel-input placeholder:text-muted-foreground h-11 min-w-0 flex-1 rounded-none px-3 font-sans text-base outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          placeholder={editingMessage ? 'Edit your message...' : 'Message...'}
+          className="pixel-input placeholder:text-muted-foreground h-12 min-w-0 flex-1 rounded-none px-3.5 font-sans text-base outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -124,10 +124,10 @@ export function MessageInput({
           onClick={onSend}
           disabled={disabled || !value.trim()}
           className={cn(
-            'pixel-btn inline-flex size-11 shrink-0 items-center justify-center border-[#090c12] text-white disabled:opacity-75',
+            'pixel-btn inline-flex size-12 shrink-0 items-center justify-center border-[#090c12] text-white disabled:opacity-75',
             editingMessage
               ? 'bg-[var(--unread)] text-[#090c12]'
-              : 'bg-[#10b981] hover:bg-[#34d399] md:bg-[#3144c8] md:hover:bg-[#3b50e0]',
+              : 'bg-[#16a34a] shadow-[inset_0_3px_0_#6ee7b7,3px_3px_0_#07090e] hover:bg-[#22c55e] md:bg-[#3346cf] md:shadow-[inset_0_3px_0_#7687ff,3px_3px_0_#07090e] md:hover:bg-[#3f54e6]',
           )}
           aria-label={editingMessage ? 'Save edit' : 'Send message'}
         >
