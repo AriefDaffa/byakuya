@@ -3,7 +3,6 @@
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageBubble } from '@/components/ui/message-bubble';
-import { formatChatTimestamp } from '@/lib/format';
 import type { MessageGroup } from '@/types/chat';
 
 interface MessageGroupProps extends MessageGroup {
@@ -36,23 +35,10 @@ export function MessageGroupComponent({
             isOwn ? 'items-end' : 'items-start',
           )}
         >
-          <div className="flex items-center gap-2">
-            {isOwn ? (
-              <>
-                <span className="font-pixel-mono text-[10px] opacity-75">
-                  {formatChatTimestamp(messages[0]?.created_at)}
-                </span>
-                <span className="font-pixel text-sm font-semibold">{senderName}</span>
-              </>
-            ) : (
-              <>
-                <span className="font-pixel text-sm font-semibold">{senderName}</span>
-                <span className="font-pixel-mono text-[10px] opacity-75">
-                  {formatChatTimestamp(messages[0]?.created_at)}
-                </span>
-              </>
-            )}
-          </div>
+          {/* Sender name only — timestamps live inside each bubble. */}
+          <span className="text-foreground/90 px-1 font-sans text-xs font-semibold tracking-wide">
+            {senderName}
+          </span>
           {messages.map((msg) => (
             <MessageBubble
               key={msg.id}

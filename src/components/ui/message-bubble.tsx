@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Pencil, Trash2, X } from 'lucide-react';
 import { PixelDownloadIcon, PixelFileIcon } from '@/components/ui/pixel-icons';
+import { formatChatTimestamp } from '@/lib/format';
 import type { MessageWithSender } from '@/types/chat';
 import type { Attachment } from '@/types/database';
 
@@ -37,36 +38,18 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function AttachmentPreview({ attachment }: { attachment: Attachment }) {
-  const isImage = attachment.file_type.startsWith('image/');
+/** Crisp attachment card with an always-visible download button. */
+function AttachmentCard({ attachment }: { attachment: Attachment }) {
   const safeUrl = getSafeAttachmentUrl(attachment.file_url);
 
-  if (isImage && safeUrl) {
-    return (
-      <a
-        href={safeUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block overflow-hidden"
-      >
-        <Image
-          src={safeUrl}
-          alt={attachment.file_name}
-          width={320}
-          height={240}
-          unoptimized
-          className="h-auto max-h-60 w-auto max-w-full object-cover transition-opacity hover:opacity-90"
-        />
-      </a>
-    );
-  }
-
   return (
-    <div className="flex max-w-full min-w-[220px] items-center gap-3 border-2 border-[var(--pixel-frame)] bg-black/15 px-3 py-2 dark:bg-black/25">
+    <div className="flex max-w-full min-w-[240px] items-center gap-3 border-2 border-[var(--pixel-frame)] bg-black/20 px-3 py-2.5">
       <PixelFileIcon className="size-8 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{attachment.file_name}</p>
-        <p className="font-pixel-mono text-[10px] opacity-75">
+        <p className="truncate text-sm font-medium text-current">
+          {attachment.file_name}
+        </p>
+        <p className="font-mono text-xs tabular-nums opacity-80">
           {formatFileSize(attachment.file_size)}
         </p>
       </div>
@@ -76,13 +59,69 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
           target="_blank"
           rel="noopener noreferrer"
           download={attachment.file_name}
-          className="pixel-btn shrink-0 p-1.5"
+          className="pixel-btn bg-secondary text-secondary-foreground inline-flex size-9 shrink-0 items-center justify-center"
           aria-label={`Download ${attachment.file_name}`}
           title={`Download ${attachment.file_name}`}
         >
           <PixelDownloadIcon className="size-4" />
         </a>
       )}
+    </div>
+  );
+}
+
+/** Image attachments show a thumbnail plus the same file/download footer. */
+function ImageAttachmentCard({
+  attachment,
+  onPreview,
+}: {
+  attachment: Attachment;
+  onPreview: (src: string) => void;
+}) {
+  const safeUrl = getSafeAttachmentUrl(attachment.file_url);
+
+  return (
+    <div className="flex max-w-full min-w-[240px] flex-col gap-2 border-2 border-[var(--pixel-frame)] bg-black/20 p-2">
+      {safeUrl && (
+        <button
+          type="button"
+          className="block cursor-zoom-in overflow-hidden"
+          onClick={() => onPreview(safeUrl)}
+          aria-label={`Preview ${attachment.file_name}`}
+        >
+          <Image
+            src={safeUrl}
+            alt={attachment.file_name}
+            width={320}
+            height={240}
+            unoptimized
+            className="h-auto max-h-60 w-full object-cover transition-opacity hover:opacity-90"
+          />
+        </button>
+      )}
+      <div className="flex items-center gap-3 px-1 pb-0.5">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-current">
+            {attachment.file_name}
+          </p>
+          <p className="font-mono text-xs tabular-nums opacity-80">
+            {formatFileSize(attachment.file_size)}
+          </p>
+        </div>
+        {safeUrl && (
+          <a
+            href={safeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={attachment.file_name}
+            className="pixel-btn bg-secondary text-secondary-foreground inline-flex size-9 shrink-0 items-center justify-center"
+            aria-label={`Download ${attachment.file_name}`}
+            title={`Download ${attachment.file_name}`}
+          >
+            <PixelDownloadIcon className="size-4" />
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -151,6 +190,20 @@ function ImageLightbox({
   );
 }
 
+/** Bottom-right meta line shown inside every bubble (edited flag + timestamp). */
+function BubbleMeta({ message }: { message: MessageWithSender }) {
+  const timestamp = formatChatTimestamp(message.created_at);
+
+  if (!message.is_edited && !timestamp) return null;
+
+  return (
+    <span className="ml-auto shrink-0 self-end font-mono text-[11px] leading-none tabular-nums opacity-75">
+      {message.is_edited && <span className="mr-1.5">(edited)</span>}
+      {timestamp}
+    </span>
+  );
+}
+
 export function MessageBubble({
   message,
   variant,
@@ -169,12 +222,13 @@ export function MessageBubble({
         <div
           data-variant={variant}
           className={cn(
-            'w-fit max-w-[78%] rounded-none px-3.5 py-2.5 sm:max-w-[68%]',
+            'flex w-fit max-w-[78%] flex-col gap-1 rounded-none px-4 py-2.5 sm:max-w-[68%]',
             isSent ? 'pixel-bubble-sent opacity-70' : 'pixel-bubble-received opacity-80',
             className,
           )}
         >
-          <p className="text-sm italic">This message was deleted</p>
+          <p className="font-sans text-sm italic opacity-90">This message was deleted</p>
+          <BubbleMeta message={message} />
         </div>
       </div>
     );
@@ -196,7 +250,7 @@ export function MessageBubble({
       )}
       <div
         className={cn(
-          'group flex w-full items-end gap-1.5',
+          'group flex w-full items-end gap-2',
           isSent ? 'justify-end' : 'justify-start',
         )}
       >
@@ -216,7 +270,7 @@ export function MessageBubble({
               <button
                 type="button"
                 onClick={() => onEdit(message.id, message.content || '')}
-                className="pixel-btn bg-card inline-flex size-7 items-center justify-center rounded-none"
+                className="pixel-btn bg-card inline-flex size-8 shrink-0 items-center justify-center rounded-none"
                 title="Edit message"
                 aria-label="Edit message"
               >
@@ -227,7 +281,7 @@ export function MessageBubble({
               <button
                 type="button"
                 onClick={() => onDelete(message.id)}
-                className="pixel-btn bg-card text-destructive inline-flex size-7 items-center justify-center rounded-none"
+                className="pixel-btn bg-card text-destructive inline-flex size-8 shrink-0 items-center justify-center rounded-none"
                 title="Delete message"
                 aria-label="Delete message"
               >
@@ -240,52 +294,39 @@ export function MessageBubble({
         <div
           data-variant={variant}
           className={cn(
-            'w-fit max-w-[78%] min-w-0 rounded-none px-3.5 py-2.5 sm:max-w-[68%]',
+            'w-fit max-w-[78%] min-w-0 rounded-none px-4 py-2.5 sm:max-w-[68%]',
             isSent ? 'pixel-bubble-sent' : 'pixel-bubble-received',
             className,
           )}
         >
-          {/* Attachments */}
-          {hasAttachments && (
-            <div className={cn('flex flex-col gap-2', showTextContent && 'mb-2')}>
-              {attachments.map((attachment) => {
-                const safeUrl = getSafeAttachmentUrl(attachment.file_url);
-
-                return attachment.file_type.startsWith('image/') && safeUrl ? (
-                  <button
-                    key={attachment.id}
-                    type="button"
-                    className="block cursor-zoom-in overflow-hidden"
-                    onClick={() => setLightboxSrc(safeUrl)}
-                    aria-label={`Preview ${attachment.file_name}`}
-                  >
-                    <Image
-                      src={safeUrl}
-                      alt={attachment.file_name}
-                      width={320}
-                      height={240}
-                      unoptimized
-                      className="h-auto max-h-60 w-auto max-w-full object-cover transition-opacity hover:opacity-90"
+          <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+            {/* Attachments */}
+            {hasAttachments && (
+              <div className="flex w-full flex-col gap-2">
+                {attachments.map((attachment) =>
+                  attachment.file_type.startsWith('image/') ? (
+                    <ImageAttachmentCard
+                      key={attachment.id}
+                      attachment={attachment}
+                      onPreview={setLightboxSrc}
                     />
-                  </button>
-                ) : (
-                  <AttachmentPreview key={attachment.id} attachment={attachment} />
-                );
-              })}
-            </div>
-          )}
+                  ) : (
+                    <AttachmentCard key={attachment.id} attachment={attachment} />
+                  ),
+                )}
+              </div>
+            )}
 
-          {/* Text content */}
-          {showTextContent && (
-            <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
-              {message.content}
-            </p>
-          )}
+            {/* Text content */}
+            {showTextContent && (
+              <p className="max-w-full font-sans text-[15px] leading-snug break-words whitespace-pre-wrap">
+                {message.content}
+              </p>
+            )}
 
-          {/* Edited indicator */}
-          {message.is_edited && (
-            <p className="font-pixel-mono mt-1 text-[10px] opacity-75">(edited)</p>
-          )}
+            {/* Edited flag + timestamp, bottom-right inside the bubble */}
+            <BubbleMeta message={message} />
+          </div>
         </div>
       </div>
     </>
