@@ -123,9 +123,9 @@
 
 /* 16-bit Pixel UI Utilities */
 .pixel-auth-bg {
-  background-color: #18202c;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Crect width='2' height='2' fill='%23212b3b'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23212b3b'/%3E%3Crect x='2' width='2' height='2' fill='%23151c27'/%3E%3Crect y='2' width='2' height='2' fill='%23151c27'/%3E%3C/svg%3E");
-  background-size: 4px 4px;
+  background-color: #161d29;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6' shape-rendering='crispEdges'%3E%3Crect width='3' height='3' fill='%23232d3f'/%3E%3Crect x='3' y='3' width='3' height='3' fill='%23232d3f'/%3E%3Crect x='3' width='3' height='3' fill='%23141a25'/%3E%3Crect y='3' width='3' height='3' fill='%23141a25'/%3E%3C/svg%3E");
+  background-size: 6px 6px;
   image-rendering: pixelated;
 }
 
@@ -187,23 +187,23 @@
   color: var(--bubble-sent-foreground);
   border: 2px solid var(--pixel-frame);
   box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.22),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.28),
-    3px 3px 0 var(--pixel-shadow);
+    inset 2px 2px 0 rgba(255, 255, 255, 0.28),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.32),
+    4px 4px 0 var(--pixel-shadow);
 }
 
 .pixel-bubble-sent::after {
   content: '';
   position: absolute;
-  right: -6px;
-  bottom: 4px;
-  width: 6px;
-  height: 6px;
+  right: -8px;
+  bottom: 2px;
+  width: 8px;
+  height: 8px;
   background-color: var(--bubble-sent);
   border-top: 2px solid var(--pixel-frame);
   border-right: 2px solid var(--pixel-frame);
   border-bottom: 2px solid var(--pixel-frame);
-  box-shadow: 2px 2px 0 var(--pixel-shadow);
+  box-shadow: 3px 3px 0 var(--pixel-shadow);
 }
 
 .pixel-bubble-received {
@@ -213,20 +213,20 @@
   border: 2px solid var(--pixel-frame);
   box-shadow:
     inset 2px 2px 0 var(--pixel-highlight),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.22),
-    3px 3px 0 var(--pixel-shadow);
+    inset -2px -2px 0 rgba(0, 0, 0, 0.28),
+    4px 4px 0 var(--pixel-shadow);
 }
 
 .pixel-bubble-received::after {
   content: '';
   position: absolute;
-  left: -6px;
-  bottom: 4px;
-  width: 6px;
-  height: 6px;
+  left: -8px;
+  bottom: 2px;
+  width: 8px;
+  height: 8px;
   background-color: var(--bubble-received);
   border-top: 2px solid var(--pixel-frame);
   border-left: 2px solid var(--pixel-frame);
   border-bottom: 2px solid var(--pixel-frame);
-  box-shadow: 0 2px 0 var(--pixel-shadow);
+  box-shadow: 0 3px 0 var(--pixel-shadow);
 }
