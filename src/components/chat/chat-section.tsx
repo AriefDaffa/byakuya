@@ -132,9 +132,9 @@ export function ChatSection() {
           <Loader />
         ) : (
           <div className="flex h-full flex-col">
-            <div className="pixel-dither-bg flex-1 overflow-y-auto p-4">
+            <div className="pixel-dither-bg flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {currentPage < totalPages && (
-                <div className="mb-4 flex w-full items-center justify-center">
+                <div className="flex w-full items-center justify-center">
                   <button
                     type="button"
                     onClick={incrementPage}
@@ -148,8 +148,8 @@ export function ChatSection() {
               {groupsWithDateDividers.map(({ group, dateLabel }, idx) => (
                 <Fragment key={group.messages[0]?.id ?? idx}>
                   {dateLabel && (
-                    <div className="my-4 flex w-full items-center justify-center">
-                      <span className="pixel-box bg-card px-3 py-1 font-sans text-xs font-semibold tracking-wide">
+                    <div className="my-2 flex w-full items-center justify-center">
+                      <span className="pixel-box bg-card px-3 py-1 font-sans text-xs font-semibold tracking-wide opacity-80">
                         {dateLabel}
                       </span>
                     </div>

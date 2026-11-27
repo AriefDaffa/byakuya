@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import { MessageBubble } from '@/components/ui/message-bubble';
+import { MessageBubble, isSafeAttachmentUrl } from '@/components/ui/message-bubble';
 import { formatChatTimestamp } from '@/lib/format';
 import type { MessageWithSender } from '@/types/chat';
 import type { Attachment, Profile } from '@/types/database';
@@ -48,13 +48,29 @@ function createAttachment(overrides: Partial<Attachment> = {}): Attachment {
   };
 }
 
+describe('isSafeAttachmentUrl', () => {
+  it('accepts relative app paths and allowed absolute schemes', () => {
+    expect(isSafeAttachmentUrl('/api/attachments/123')).toBe(true);
+    expect(isSafeAttachmentUrl('https://example.com/note.txt')).toBe(true);
+    expect(isSafeAttachmentUrl('http://example.com/note.txt')).toBe(true);
+    expect(isSafeAttachmentUrl('blob:https://example.com/123')).toBe(true);
+  });
+
+  it('rejects unsafe and protocol-relative URLs', () => {
+    expect(isSafeAttachmentUrl('javascript:alert(1)')).toBe(false);
+    expect(isSafeAttachmentUrl('data:text/html,<script>alert(1)</script>')).toBe(false);
+    expect(isSafeAttachmentUrl('//evil.example/note.txt')).toBe(false);
+    expect(isSafeAttachmentUrl('')).toBe(false);
+  });
+});
+
 describe('MessageBubble', () => {
   it('renders sent variant with pixel bubble styling and comfortable text', () => {
     render(<MessageBubble message={createMessage()} variant="sent" />);
 
     const text = screen.getByText('Hello!');
     expect(text).toBeInTheDocument();
-    expect(text.className).toContain('text-[15px]');
+    expect(text.className).toContain('text-base');
     expect(text.className).toContain('leading-snug');
     expect(text.className).toContain('font-sans');
 
@@ -64,7 +80,7 @@ describe('MessageBubble', () => {
     expect(bubble?.className).toContain('rounded-none');
     expect(bubble?.className).toContain('max-w-[78%]');
     expect(bubble?.className).toContain('px-4');
-    expect(bubble?.className).toContain('py-2.5');
+    expect(bubble?.className).toContain('py-3');
   });
 
   it('renders received variant with pixel bubble styling', () => {
@@ -82,6 +98,8 @@ describe('MessageBubble', () => {
     expect(bubble).not.toBeNull();
     expect(bubble?.className).toContain('pixel-bubble-received');
     expect(bubble?.className).toContain('rounded-none');
+    expect(bubble?.className).toContain('px-4');
+    expect(bubble?.className).toContain('py-3');
   });
 
   it('renders the timestamp inside the bottom-right of the bubble', () => {
@@ -97,8 +115,9 @@ describe('MessageBubble', () => {
     const meta = within(bubble as HTMLElement).getByText(timestamp as string);
     expect(meta).toBeInTheDocument();
     expect(bubble?.contains(meta)).toBe(true);
+    expect(meta.className).toContain('ml-auto');
     expect(meta.className).toContain('font-mono');
-    expect(meta.className).toContain('text-[11px]');
+    expect(meta.className).toContain('text-xs');
     expect(meta.className).toContain('tabular-nums');
     expect(meta.className).toContain('opacity-75');
   });
@@ -117,7 +136,7 @@ describe('MessageBubble', () => {
     expect(within(bubble as HTMLElement).getByText(timestamp)).toBeInTheDocument();
   });
 
-  it('keeps the message actions outside the bubble element', () => {
+  it('hides message actions at rest but reveals them on hover or keyboard focus', () => {
     render(
       <MessageBubble
         message={createMessage()}
@@ -133,11 +152,17 @@ describe('MessageBubble', () => {
 
     expect(bubble?.contains(editButton)).toBe(false);
     expect(bubble?.contains(deleteButton)).toBe(false);
-    expect(editButton.className).toContain('shrink-0');
-    expect(deleteButton.className).toContain('shrink-0');
+
+    const actions = editButton.parentElement;
+    expect(actions).not.toBeNull();
+    expect(actions?.className).toContain('opacity-0');
+    expect(actions?.className).toContain('group-hover:opacity-100');
+    expect(actions?.className).toContain('group-focus-within:opacity-100');
+    expect(actions?.className).toContain('transition-opacity');
+    expect(actions?.className).not.toContain('max-md:opacity-100');
   });
 
-  it('renders a crisp attachment card with filename, size, and a prominent download link', () => {
+  it('renders a single-surface attachment bubble with filename, size, and a prominent download link', () => {
     render(
       <MessageBubble
         message={createMessage({
@@ -157,19 +182,39 @@ describe('MessageBubble', () => {
     const card = size.parentElement?.parentElement;
     expect(card).not.toBeNull();
     expect(card?.className).toContain('min-w-[240px]');
-    expect(card?.className).toContain('bg-black/20');
-    expect(card?.className).toContain('border-2');
+    // Single surface: the attachment row must not add its own nested frame.
+    expect(card?.className).not.toContain('border-2');
+    expect(card?.className).not.toContain('bg-black/20');
+    expect(card?.closest('[data-variant="sent"]')).not.toBeNull();
 
     const download = screen.getByRole('link', { name: 'Download note.txt' });
     expect(download).toBeInTheDocument();
     expect(download.getAttribute('href')).toBe('https://example.com/note.txt');
     expect(download.getAttribute('download')).toBe('note.txt');
     expect(download.className).toContain('pixel-btn');
-    expect(download.className).toContain('size-9');
-    expect(download.className).toContain('bg-secondary');
-    expect(download.className).toContain('text-secondary-foreground');
+    expect(download.className).toContain('size-10');
+    expect(download.className).toContain('bg-[#1e2638]');
+    expect(download.className).toContain('text-[#f8fafc]');
+    expect(download.className).toContain('hover:bg-[#2b3650]');
 
     expect(screen.getByText('Here is the file')).toBeInTheDocument();
+  });
+
+  it('renders the download link for relative /api/attachments URLs', () => {
+    render(
+      <MessageBubble
+        message={createMessage({
+          content: '',
+          attachments: [createAttachment({ file_url: '/api/attachments/123' })],
+        })}
+        variant="received"
+      />,
+    );
+
+    const download = screen.getByRole('link', { name: 'Download note.txt' });
+    expect(download).toBeInTheDocument();
+    expect(download.getAttribute('href')).toBe('/api/attachments/123');
+    expect(download.getAttribute('download')).toBe('note.txt');
   });
 
   it('renders the download link for image attachments too', () => {
@@ -200,7 +245,14 @@ describe('MessageBubble', () => {
       <MessageBubble
         message={createMessage({
           content: 'Suspicious file',
-          attachments: [createAttachment({ file_url: 'javascript:alert(1)' })],
+          attachments: [
+            createAttachment({ file_url: 'javascript:alert(1)' }),
+            createAttachment({
+              id: 'attachment-2',
+              file_name: 'remote.txt',
+              file_url: '//evil.example/remote.txt',
+            }),
+          ],
         })}
         variant="sent"
       />,
