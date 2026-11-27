@@ -103,9 +103,9 @@
   --pixel-frame: #090c12;
   --pixel-highlight: #3a4563;
   --pixel-shadow: #07090e;
-  --bubble-sent: #273c99;
+  --bubble-sent: #2e42b8;
   --bubble-sent-foreground: #f8fafc;
-  --bubble-received: #262d3f;
+  --bubble-received: #252c3d;
   --bubble-received-foreground: #eef2ff;
   --online: #22c55e;
   --unread: #f59e0b;
@@ -122,26 +122,27 @@
 }
 
 /* 16-bit Pixel UI Utilities */
-.pixel-dither-bg {
-  background-color: var(--background);
+.pixel-auth-bg {
+  background-color: #161d29;
   background-image:
-    radial-gradient(var(--pixel-highlight) 0.75px, transparent 0.75px),
-    radial-gradient(var(--pixel-frame) 0.75px, var(--background) 0.75px);
+    linear-gradient(45deg, #1d2636 25%, transparent 25%),
+    linear-gradient(-45deg, #1d2636 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1d2636 75%),
+    linear-gradient(-45deg, transparent 75%, #1d2636 75%);
   background-size: 6px 6px;
   background-position:
     0 0,
-    3px 3px;
+    0 3px,
+    3px -3px,
+    -3px 0;
+}
+
+.pixel-dither-bg {
+  background-color: #dde4ef;
 }
 
 .dark .pixel-dither-bg {
-  background-color: #131722;
-  background-image:
-    radial-gradient(#1f2638 1px, transparent 1px),
-    radial-gradient(#0c0f17 1px, #131722 1px);
-  background-size: 6px 6px;
-  background-position:
-    0 0,
-    3px 3px;
+  background-color: #161b26;
 }
 
 .pixel-panel {
@@ -189,21 +190,51 @@
 }
 
 .pixel-bubble-sent {
+  position: relative;
   background-color: var(--bubble-sent);
   color: var(--bubble-sent-foreground);
   border: 2px solid var(--pixel-frame);
   box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.18),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.25),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.22),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.28),
     3px 3px 0 var(--pixel-shadow);
 }
 
+.pixel-bubble-sent::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  background-color: var(--bubble-sent);
+  border-top: 2px solid var(--pixel-frame);
+  border-right: 2px solid var(--pixel-frame);
+  border-bottom: 2px solid var(--pixel-frame);
+  box-shadow: 2px 2px 0 var(--pixel-shadow);
+}
+
 .pixel-bubble-received {
+  position: relative;
   background-color: var(--bubble-received);
   color: var(--bubble-received-foreground);
   border: 2px solid var(--pixel-frame);
   box-shadow:
     inset 2px 2px 0 var(--pixel-highlight),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.2),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.22),
     3px 3px 0 var(--pixel-shadow);
+}
+
+.pixel-bubble-received::after {
+  content: '';
+  position: absolute;
+  left: -6px;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  background-color: var(--bubble-received);
+  border-top: 2px solid var(--pixel-frame);
+  border-left: 2px solid var(--pixel-frame);
+  border-bottom: 2px solid var(--pixel-frame);
+  box-shadow: 0 2px 0 var(--pixel-shadow);
 }
