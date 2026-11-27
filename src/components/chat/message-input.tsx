@@ -1,7 +1,8 @@
 'use client';
 
-import { Send, Paperclip, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PixelClipIcon, PixelSendIcon } from '@/components/ui/pixel-icons';
 import { useCallback, useRef } from 'react';
 import type { EditingMessage } from '@/types/chat';
 
@@ -63,17 +64,19 @@ export function MessageInput({
     <div className={cn('z-10 flex flex-col', className)}>
       {/* Edit mode banner */}
       {editingMessage && (
-        <div className="bg-muted/50 flex items-center gap-2 border-t px-4 py-2">
-          <div className="flex-1 truncate">
-            <p className="text-xs font-medium text-blue-500">Editing message</p>
-            <p className="text-muted-foreground truncate text-xs">
+        <div className="bg-muted flex items-center gap-2 border-t-2 border-[var(--pixel-frame)] px-3 py-2 sm:px-4">
+          <div className="min-w-0 flex-1">
+            <p className="font-pixel text-[10px] font-bold text-[var(--unread)] uppercase">
+              Editing message
+            </p>
+            <p className="text-muted-foreground font-pixel-mono truncate text-xs">
               {editingMessage.content}
             </p>
           </div>
           <button
             type="button"
             onClick={onCancelEdit}
-            className="hover:bg-accent inline-flex size-6 shrink-0 items-center justify-center rounded-full transition-colors"
+            className="pixel-btn bg-card text-foreground inline-flex size-7 shrink-0 items-center justify-center"
             aria-label="Cancel editing"
           >
             <X className="size-3.5" />
@@ -81,7 +84,7 @@ export function MessageInput({
         </div>
       )}
 
-      <div className="flex items-center gap-2 p-4">
+      <div className="bg-card flex items-center gap-2 border-t-2 border-[var(--pixel-frame)] p-3 sm:p-4">
         {/* Attachment button */}
         {onSendAttachment && !editingMessage && (
           <>
@@ -97,10 +100,10 @@ export function MessageInput({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
-              className="text-muted-foreground hover:text-foreground hover:bg-accent inline-flex size-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50"
+              className="pixel-btn bg-secondary text-secondary-foreground inline-flex size-10 shrink-0 items-center justify-center disabled:opacity-50"
               aria-label="Attach file"
             >
-              <Paperclip className="size-5" />
+              <PixelClipIcon className="size-5" />
             </button>
           </>
         )}
@@ -108,7 +111,7 @@ export function MessageInput({
         <input
           type="text"
           placeholder={editingMessage ? 'Edit your message...' : 'Type a message...'}
-          className="bg-muted/50 placeholder:text-muted-foreground focus:ring-ring flex-1 rounded-full border-0 px-4 py-2 text-sm ring-0 outline-none focus:ring-2"
+          className="pixel-input placeholder:text-muted-foreground font-pixel-mono min-w-0 flex-1 rounded-none px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -121,14 +124,14 @@ export function MessageInput({
           onClick={onSend}
           disabled={disabled || !value.trim()}
           className={cn(
-            'inline-flex size-10 items-center justify-center rounded-full transition-colors disabled:opacity-50',
+            'pixel-btn inline-flex size-10 shrink-0 items-center justify-center disabled:opacity-50',
             editingMessage
-              ? 'bg-blue-500 text-white hover:bg-blue-600'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90',
+              ? 'bg-[var(--unread)] text-[#090c12]'
+              : 'bg-primary text-primary-foreground',
           )}
           aria-label={editingMessage ? 'Save edit' : 'Send message'}
         >
-          <Send className="size-5" />
+          <PixelSendIcon className="size-5" />
         </button>
       </div>
     </div>

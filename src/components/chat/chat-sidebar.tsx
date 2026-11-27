@@ -11,6 +11,7 @@ import { SidebarHeader } from '@/components/chat/sidebar-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loader } from '@/components/ui/loader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PixelSearchIcon } from '@/components/ui/pixel-icons';
 import { getOrCreateConversation } from '@/features/chat/actions';
 import { getMe } from '@/features/auth/actions';
 import { useCallback, useEffect, useState } from 'react';
@@ -113,16 +114,17 @@ export function ChatSidebar() {
   );
 
   return (
-    <div className="relative flex size-full flex-col border-r border-b border-l">
-      <div className="space-y-4 border-b px-3 pt-6 pb-4">
+    <div className="bg-sidebar relative flex size-full min-h-0 flex-col border-r-2 border-[var(--pixel-frame)]">
+      <div className="space-y-3 border-b-2 border-[var(--pixel-frame)] px-3 py-3">
         <SidebarHeader userName={currentUser?.name} />
         <div className="relative w-full">
+          <PixelSearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
           <input
             type="text"
             value={searchKeyword}
             onChange={(e) => onSearch(e.target.value)}
             placeholder="Search users or messages..."
-            className="placeholder:text-muted-foreground focus:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm ring-0 outline-none focus:ring-2"
+            className="pixel-input placeholder:text-muted-foreground font-pixel-mono w-full rounded-none py-2 pr-8 pl-8 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             aria-label="Search conversations"
           />
           {searchKeyword && (
@@ -132,10 +134,10 @@ export function ChatSidebar() {
                 setSearchKeyword('');
                 onSearch('');
               }}
-              className="text-muted-foreground absolute top-0 right-2 bottom-0 my-auto"
+              className="text-muted-foreground hover:text-foreground absolute top-0 right-1.5 bottom-0 my-auto inline-flex size-6 items-center justify-center"
               aria-label="Clear search"
             >
-              <X size={18} />
+              <X size={14} />
             </button>
           )}
         </div>
@@ -146,10 +148,10 @@ export function ChatSidebar() {
         isSearching ? (
           <Loader />
         ) : (
-          <div className="flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {results.users.length > 0 && (
               <>
-                <div className="text-muted-foreground border-b p-4 text-xs font-semibold uppercase">
+                <div className="text-muted-foreground font-pixel border-b border-[var(--pixel-frame)] bg-[var(--card)] px-3 py-2 text-[10px] font-bold uppercase">
                   Users
                 </div>
                 {results.users.map((user) => (
@@ -157,17 +159,19 @@ export function ChatSidebar() {
                     key={user.id}
                     type="button"
                     onClick={() => handleSelectUser(user)}
-                    className="hover:bg-accent flex w-full items-center gap-3 border-b px-3 py-3 text-left transition-colors"
+                    className="hover:bg-accent flex w-full items-center gap-3 border-b border-[var(--pixel-frame)] px-3 py-2.5 text-left transition-colors"
                   >
-                    <Avatar className="size-10">
+                    <Avatar className="size-9">
                       <AvatarImage src={user.avatar_url || ''} alt={user.name} />
-                      <AvatarFallback>
+                      <AvatarFallback className="font-pixel text-xs font-bold">
                         {user.name.substring(0, 1).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-muted-foreground text-xs">{user.email}</p>
+                    <div className="min-w-0">
+                      <p className="font-pixel truncate text-sm font-bold">{user.name}</p>
+                      <p className="text-muted-foreground font-pixel-mono truncate text-[10px]">
+                        {user.email}
+                      </p>
                     </div>
                   </button>
                 ))}
@@ -175,7 +179,7 @@ export function ChatSidebar() {
             )}
             {results.messages.length > 0 && (
               <>
-                <div className="text-muted-foreground border-b p-4 text-xs font-semibold uppercase">
+                <div className="text-muted-foreground font-pixel border-b border-[var(--pixel-frame)] bg-[var(--card)] px-3 py-2 text-[10px] font-bold uppercase">
                   Messages
                 </div>
                 {results.messages.map((msg) => (
@@ -183,22 +187,22 @@ export function ChatSidebar() {
                     key={msg.id}
                     type="button"
                     onClick={() => handleSelectSearchMessage(msg.conversation_id)}
-                    className="hover:bg-accent flex w-full items-center gap-3 border-b px-3 py-3 text-left transition-colors"
+                    className="hover:bg-accent flex w-full items-center gap-3 border-b border-[var(--pixel-frame)] px-3 py-2.5 text-left transition-colors"
                   >
-                    <Avatar className="size-10">
+                    <Avatar className="size-9">
                       <AvatarImage
                         src={msg.sender.avatar_url || ''}
                         alt={msg.sender.name}
                       />
-                      <AvatarFallback>
+                      <AvatarFallback className="font-pixel text-xs font-bold">
                         {msg.sender.name.substring(0, 1).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium">
+                      <p className="font-pixel truncate text-sm font-bold">
                         {msg.sender.id === currentUser?.id ? 'You' : msg.sender.name}
                       </p>
-                      <p className="text-muted-foreground truncate text-sm">
+                      <p className="text-muted-foreground font-pixel-mono truncate text-xs">
                         {msg.content}
                       </p>
                     </div>
@@ -222,7 +226,7 @@ export function ChatSidebar() {
               subtitle="Start a conversation by searching for users above"
             />
           ) : (
-            <div className="flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               {data.map((item) => (
                 <ChatListItemComponent
                   key={item.conversation.id}
