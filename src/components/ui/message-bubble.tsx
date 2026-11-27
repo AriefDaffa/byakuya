@@ -20,16 +20,33 @@ interface MessageBubbleProps {
 const ALLOWED_ATTACHMENT_PROTOCOLS = new Set(['https:', 'http:', 'blob:']);
 
 /**
- * Only allow attachment links with a scheme we know is safe to render.
- * Prevents `javascript:` / `data:` URLs from being used as links or images.
+ * Attachments either point at an absolute URL (https:, http:, blob:) or at a
+ * relative app path such as `/api/attachments/<id>`. Everything else, notably
+ * `javascript:` / `data:` payloads and protocol-relative `//host` links, is
+ * rejected.
  */
-function getSafeAttachmentUrl(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    return ALLOWED_ATTACHMENT_PROTOCOLS.has(parsed.protocol) ? parsed.href : null;
-  } catch {
-    return null;
+export function isSafeAttachmentUrl(url: string): boolean {
+  const trimmed = url.trim();
+
+  if (!trimmed) return false;
+  // `//evil.example` and backslash variants would navigate off-site.
+  if (trimmed.startsWith('//') || trimmed.startsWith('/\\') || trimmed.startsWith('\\')) {
+    return false;
   }
+  // Relative app paths (e.g. /api/attachments/123) are always same-origin.
+  if (trimmed.startsWith('/')) return true;
+
+  try {
+    const parsed = new URL(trimmed);
+    return ALLOWED_ATTACHMENT_PROTOCOLS.has(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function getSafeAttachmentUrl(url: string): string | null {
+  const trimmed = url.trim();
+  return isSafeAttachmentUrl(trimmed) ? trimmed : null;
 }
 
 function formatFileSize(bytes: number): string {
@@ -38,34 +55,46 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Crisp attachment card with an always-visible download button. */
+/** Prominent, always-visible download affordance used by every attachment. */
+function AttachmentDownloadLink({
+  attachment,
+  url,
+}: {
+  attachment: Attachment;
+  url: string;
+}) {
+  return (
+    <a
+      href={url}
+      download={attachment.file_name}
+      className="pixel-btn inline-flex size-10 shrink-0 items-center justify-center bg-[#1e2638] text-[#f8fafc] hover:bg-[#2b3650]"
+      aria-label={`Download ${attachment.file_name}`}
+      title={`Download ${attachment.file_name}`}
+    >
+      <PixelDownloadIcon className="size-5" />
+    </a>
+  );
+}
+
+/**
+ * Non-image attachments sit directly on the bubble surface (single surface —
+ * no nested card border) so the bubble reads like R01/R02.
+ */
 function AttachmentCard({ attachment }: { attachment: Attachment }) {
   const safeUrl = getSafeAttachmentUrl(attachment.file_url);
 
   return (
-    <div className="flex max-w-full min-w-[240px] items-center gap-3 border-2 border-[var(--pixel-frame)] bg-black/20 px-3 py-2.5">
-      <PixelFileIcon className="size-8 shrink-0" />
+    <div className="flex w-full max-w-full min-w-[240px] items-center gap-3">
+      <PixelFileIcon className="size-9 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-current">
+        <p className="truncate text-base font-medium text-current">
           {attachment.file_name}
         </p>
-        <p className="font-mono text-xs tabular-nums opacity-80">
+        <p className="font-mono text-xs tabular-nums opacity-75">
           {formatFileSize(attachment.file_size)}
         </p>
       </div>
-      {safeUrl && (
-        <a
-          href={safeUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          download={attachment.file_name}
-          className="pixel-btn bg-secondary text-secondary-foreground inline-flex size-9 shrink-0 items-center justify-center"
-          aria-label={`Download ${attachment.file_name}`}
-          title={`Download ${attachment.file_name}`}
-        >
-          <PixelDownloadIcon className="size-4" />
-        </a>
-      )}
+      {safeUrl && <AttachmentDownloadLink attachment={attachment} url={safeUrl} />}
     </div>
   );
 }
@@ -81,7 +110,7 @@ function ImageAttachmentCard({
   const safeUrl = getSafeAttachmentUrl(attachment.file_url);
 
   return (
-    <div className="flex max-w-full min-w-[240px] flex-col gap-2 border-2 border-[var(--pixel-frame)] bg-black/20 p-2">
+    <div className="flex w-full max-w-full min-w-[240px] flex-col gap-2">
       {safeUrl && (
         <button
           type="button"
@@ -99,28 +128,16 @@ function ImageAttachmentCard({
           />
         </button>
       )}
-      <div className="flex items-center gap-3 px-1 pb-0.5">
+      <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-current">
+          <p className="truncate text-base font-medium text-current">
             {attachment.file_name}
           </p>
-          <p className="font-mono text-xs tabular-nums opacity-80">
+          <p className="font-mono text-xs tabular-nums opacity-75">
             {formatFileSize(attachment.file_size)}
           </p>
         </div>
-        {safeUrl && (
-          <a
-            href={safeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            download={attachment.file_name}
-            className="pixel-btn bg-secondary text-secondary-foreground inline-flex size-9 shrink-0 items-center justify-center"
-            aria-label={`Download ${attachment.file_name}`}
-            title={`Download ${attachment.file_name}`}
-          >
-            <PixelDownloadIcon className="size-4" />
-          </a>
-        )}
+        {safeUrl && <AttachmentDownloadLink attachment={attachment} url={safeUrl} />}
       </div>
     </div>
   );
@@ -197,7 +214,7 @@ function BubbleMeta({ message }: { message: MessageWithSender }) {
   if (!message.is_edited && !timestamp) return null;
 
   return (
-    <span className="ml-auto shrink-0 self-end font-mono text-[11px] leading-none tabular-nums opacity-75">
+    <span className="ml-auto shrink-0 self-end font-mono text-xs leading-none tabular-nums opacity-75">
       {message.is_edited && <span className="mr-1.5">(edited)</span>}
       {timestamp}
     </span>
@@ -222,12 +239,14 @@ export function MessageBubble({
         <div
           data-variant={variant}
           className={cn(
-            'flex w-fit max-w-[78%] flex-col gap-1 rounded-none px-4 py-2.5 sm:max-w-[68%]',
+            'flex w-fit max-w-[78%] flex-col gap-1 rounded-none px-4 py-3 sm:max-w-[68%]',
             isSent ? 'pixel-bubble-sent opacity-70' : 'pixel-bubble-received opacity-80',
             className,
           )}
         >
-          <p className="font-sans text-sm italic opacity-90">This message was deleted</p>
+          <p className="font-sans text-base leading-snug italic opacity-90">
+            This message was deleted
+          </p>
           <BubbleMeta message={message} />
         </div>
       </div>
@@ -255,15 +274,14 @@ export function MessageBubble({
         )}
       >
         {/* Action menu (only for own messages). Kept outside the bubble so short
-            messages keep their natural width. Visible on hover/focus for
-            keyboards and always on small/touch screens. */}
+            messages keep their natural width. Hidden at rest so the feed stays
+            clean; revealed on hover or keyboard focus. */}
         {canManage && (
           <div
             className={cn(
-              'flex shrink-0 items-center gap-0.5 transition-opacity',
+              'flex shrink-0 items-center gap-0.5 transition-opacity duration-150',
               'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100',
               'group-focus-within:pointer-events-auto group-focus-within:opacity-100',
-              'max-md:pointer-events-auto max-md:opacity-100',
             )}
           >
             {onEdit && message.type === 'text' && (
@@ -294,7 +312,7 @@ export function MessageBubble({
         <div
           data-variant={variant}
           className={cn(
-            'w-fit max-w-[78%] min-w-0 rounded-none px-4 py-2.5 sm:max-w-[68%]',
+            'w-fit max-w-[78%] min-w-0 rounded-none px-4 py-3 sm:max-w-[68%]',
             isSent ? 'pixel-bubble-sent' : 'pixel-bubble-received',
             className,
           )}
@@ -319,7 +337,7 @@ export function MessageBubble({
 
             {/* Text content */}
             {showTextContent && (
-              <p className="max-w-full font-sans text-[15px] leading-snug break-words whitespace-pre-wrap">
+              <p className="max-w-full font-sans text-base leading-snug break-words whitespace-pre-wrap">
                 {message.content}
               </p>
             )}

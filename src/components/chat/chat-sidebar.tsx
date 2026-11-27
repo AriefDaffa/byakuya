@@ -115,16 +115,16 @@ export function ChatSidebar() {
 
   return (
     <div className="bg-sidebar relative flex size-full min-h-0 flex-col border-r-2 border-[var(--pixel-frame)]">
-      <div className="space-y-3 border-b-2 border-[var(--pixel-frame)] px-3 py-3">
+      <div className="space-y-3 border-b-2 border-[#090c12] px-4 py-3.5">
         <SidebarHeader userName={currentUser?.name} />
         <div className="relative w-full">
-          <PixelSearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+          <PixelSearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-[18px] -translate-y-1/2" />
           <input
             type="text"
             value={searchKeyword}
             onChange={(e) => onSearch(e.target.value)}
             placeholder="Search..."
-            className="pixel-input placeholder:text-muted-foreground w-full rounded-none py-2.5 pr-8 pl-9 font-sans text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            className="pixel-input placeholder:text-muted-foreground h-11 w-full rounded-none pr-9 pl-10 font-sans text-base outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             aria-label="Search conversations"
           />
           {searchKeyword && (
@@ -134,7 +134,7 @@ export function ChatSidebar() {
                 setSearchKeyword('');
                 onSearch('');
               }}
-              className="text-muted-foreground hover:text-foreground absolute top-0 right-1.5 bottom-0 my-auto inline-flex size-6 items-center justify-center"
+              className="text-muted-foreground hover:text-foreground absolute top-0 right-2 bottom-0 my-auto inline-flex size-6 items-center justify-center"
               aria-label="Clear search"
             >
               <X size={14} />
@@ -151,7 +151,7 @@ export function ChatSidebar() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {results.users.length > 0 && (
               <>
-                <div className="text-muted-foreground border-b border-[var(--pixel-frame)] bg-[var(--card)] px-3 py-2 font-sans text-[11px] font-semibold tracking-wider uppercase">
+                <div className="text-muted-foreground border-b-2 border-[#0b0e14]/70 bg-[var(--card)] px-4 py-2.5 font-sans text-[11px] font-semibold tracking-wider uppercase">
                   Users
                 </div>
                 {results.users.map((user) => (
@@ -159,17 +159,17 @@ export function ChatSidebar() {
                     key={user.id}
                     type="button"
                     onClick={() => handleSelectUser(user)}
-                    className="hover:bg-accent flex w-full items-center gap-3 border-b border-[var(--pixel-frame)] px-3 py-2.5 text-left transition-colors"
+                    className="hover:bg-accent flex w-full items-center gap-3 border-b-2 border-[#0b0e14]/70 px-4 py-2.5 text-left transition-colors"
                   >
-                    <Avatar className="size-10">
+                    <Avatar className="size-12 border-2 border-[#090c12] shadow-[2px_2px_0_#07090e]">
                       <AvatarImage src={user.avatar_url || ''} alt={user.name} />
                       <AvatarFallback>{user.name}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="truncate font-sans text-sm font-semibold">
+                      <p className="truncate font-sans text-base leading-tight font-semibold">
                         {user.name}
                       </p>
-                      <p className="text-muted-foreground truncate font-sans text-xs">
+                      <p className="text-muted-foreground mt-0.5 truncate font-sans text-sm">
                         {user.email}
                       </p>
                     </div>
@@ -179,7 +179,7 @@ export function ChatSidebar() {
             )}
             {results.messages.length > 0 && (
               <>
-                <div className="text-muted-foreground border-b border-[var(--pixel-frame)] bg-[var(--card)] px-3 py-2 font-sans text-[11px] font-semibold tracking-wider uppercase">
+                <div className="text-muted-foreground border-b-2 border-[#0b0e14]/70 bg-[var(--card)] px-4 py-2.5 font-sans text-[11px] font-semibold tracking-wider uppercase">
                   Messages
                 </div>
                 {results.messages.map((msg) => (
@@ -187,9 +187,9 @@ export function ChatSidebar() {
                     key={msg.id}
                     type="button"
                     onClick={() => handleSelectSearchMessage(msg.conversation_id)}
-                    className="hover:bg-accent flex w-full items-center gap-3 border-b border-[var(--pixel-frame)] px-3 py-2.5 text-left transition-colors"
+                    className="hover:bg-accent flex w-full items-center gap-3 border-b-2 border-[#0b0e14]/70 px-4 py-2.5 text-left transition-colors"
                   >
-                    <Avatar className="size-10">
+                    <Avatar className="size-12 border-2 border-[#090c12] shadow-[2px_2px_0_#07090e]">
                       <AvatarImage
                         src={msg.sender.avatar_url || ''}
                         alt={msg.sender.name}
@@ -197,10 +197,10 @@ export function ChatSidebar() {
                       <AvatarFallback>{msg.sender.name}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-sans text-sm font-semibold">
+                      <p className="truncate font-sans text-base leading-tight font-semibold">
                         {msg.sender.id === currentUser?.id ? 'You' : msg.sender.name}
                       </p>
-                      <p className="text-muted-foreground truncate font-sans text-xs">
+                      <p className="text-muted-foreground mt-0.5 truncate font-sans text-sm">
                         {msg.content}
                       </p>
                     </div>

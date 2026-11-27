@@ -55,11 +55,11 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
     <div className="flex items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-3">
         <div className="relative shrink-0">
-          <Avatar className="size-10">
+          <Avatar className="size-12 border-2 border-[#090c12] shadow-[2px_2px_0_#07090e]">
             <AvatarFallback>{displayName}</AvatarFallback>
           </Avatar>
           <span
-            className="absolute -right-0.5 -bottom-0.5 size-2.5 border border-[var(--pixel-frame)] bg-[var(--online)]"
+            className="absolute -right-0.5 -bottom-0.5 size-3 border-2 border-[#090c12] bg-[var(--online)]"
             aria-hidden="true"
           />
         </div>
