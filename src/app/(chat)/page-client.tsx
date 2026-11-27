@@ -4,56 +4,45 @@ import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { ChatSection } from '@/components/chat/chat-section';
 import { ChatLayout } from '@/components/layout/chat-layout';
 import { SheetOverlay } from '@/components/layout/sheet-overlay';
-import { ChatHeader } from '@/components/chat/chat-header';
 import { ReceiverProfile } from '@/components/chat/receiver-profile';
 import { useChatStore } from '@/store/chat-store';
 import { usePresence } from '@/hooks/use-realtime';
-import { createClient } from '@/lib/supabase/client';
+import { getMe } from '@/features/auth/actions';
 import { useEffect, useState } from 'react';
 
 export function ChatPageClient() {
-  const supabase = createClient();
   const [userId, setUserId] = useState<string | null>(null);
 
-  const {
-    selectedUser,
-    isChatSliderOpen,
-    toggleChatSlider,
-    isProfileOpen,
-    toggleProfile,
-  } = useChatStore();
+  const selectedUser = useChatStore((state) => state.selectedUser);
+  const isChatSliderOpen = useChatStore((state) => state.isChatSliderOpen);
+  const toggleChatSlider = useChatStore((state) => state.toggleChatSlider);
+  const isProfileOpen = useChatStore((state) => state.isProfileOpen);
+  const toggleProfile = useChatStore((state) => state.toggleProfile);
 
   // Get user ID for presence
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUserId(user?.id || null);
+    let active = true;
+    getMe().then((user) => {
+      if (active) {
+        setUserId(user?.id ?? null);
+      }
     });
-  }, [supabase.auth]);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Track user presence
   usePresence(userId);
 
   return (
     <>
-      <ChatLayout sidebar={<ChatSidebar />} chatSection={<ChatSection />} />
-
-      {/* Mobile chat slider */}
-      <SheetOverlay
-        isOpen={isChatSliderOpen}
-        onClose={toggleChatSlider}
-        header={
-          selectedUser ? (
-            <ChatHeader
-              avatar={selectedUser.avatar_url || ''}
-              name={selectedUser.name}
-              status={selectedUser.status}
-              onProfileClick={toggleProfile}
-            />
-          ) : undefined
-        }
-      >
-        <ChatSection withHeader={false} />
-      </SheetOverlay>
+      <ChatLayout
+        sidebar={<ChatSidebar />}
+        chatSection={<ChatSection />}
+        isChatOpen={isChatSliderOpen}
+        onCloseChat={toggleChatSlider}
+      />
 
       {/* Profile sheet */}
       <SheetOverlay isOpen={isProfileOpen} onClose={toggleProfile} title="Profile">

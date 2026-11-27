@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Byakuya
 
-## Getting Started
+16-bit pixel-themed realtime chat application built with Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Zustand, and PostgreSQL (Docker).
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **16-bit Pixel OS UI:** Classic desktop/mobile window chrome, notched pixel speech bubbles with directional tails, deterministic 16×16 RPG portrait avatars, custom `crispEdges` pixel icons, and light/dark theme support.
+- **Custom Authentication:** PostgreSQL-backed user accounts with `scrypt` password hashing, signed `jose` JWT session cookies, and Next.js `proxy.ts` route protection.
+- **Realtime Chat & Attachments:** Server-Sent Events (`/api/realtime`) for live message delivery, editing, deletion, and unread counts, plus local file/image attachment uploads served via `/api/attachments/[id]`.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Prerequisites
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Node.js** `>= 20.9.0`
+- **Docker** (for local PostgreSQL)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Setup
 
-## Learn More
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Copy the environment template:
+   ```bash
+   cp .env.example .env.local
+   ```
+3. Start PostgreSQL in Docker (automatically initializes `db/init/001_schema.sql`):
+   ```bash
+   npm run db:up
+   ```
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev` — Start Next.js dev server (Turbopack)
+- `npm run build` — Production build
+- `npm run type-check` — TypeScript check (`tsc --noEmit`)
+- `npm run lint` — ESLint (`eslint .`)
+- `npm run format:check` — Prettier formatting check
+- `npx vitest run` — Run unit/component tests once (`npm test` runs watch mode)
+- `npm run test:coverage` — Run Vitest with V8 coverage
+- `npm run test:e2e` — Run Playwright E2E tests (`./e2e`)
+- `npm run db:up` / `npm run db:down` / `npm run db:psql` — Manage Docker PostgreSQL

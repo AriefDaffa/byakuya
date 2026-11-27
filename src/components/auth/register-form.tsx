@@ -9,6 +9,14 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
+const inputClassName =
+  'h-11 w-full rounded-none border-2 border-[#0b0e14] bg-[#f4f7fb] px-3.5 font-sans text-base text-[#0f172a] shadow-[inset_2px_2px_0_rgba(0,0,0,0.22)] outline-none placeholder:text-[#64748b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1b5e8a]';
+
+const labelClassName = 'font-sans text-base font-semibold text-[#0b1220]';
+
+const submitButtonClassName =
+  'pixel-btn relative mt-2 h-12 w-full rounded-none bg-[#1b5e8a] font-sans text-lg font-bold text-white before:pointer-events-none before:absolute before:inset-x-0.5 before:top-0.5 before:h-0.5 before:bg-white/40 hover:bg-[#2271a6] disabled:cursor-not-allowed disabled:opacity-60';
+
 export function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -26,15 +34,17 @@ export function RegisterForm() {
     setIsLoading(true);
     try {
       const result = await signUp(data);
+
       if (result?.error) {
         toast.error(result.error);
-      } else if (result?.autoSignedIn) {
-        toast.success('Account created and you are now logged in!');
-        router.push('/');
-      } else {
-        toast.success(result?.message || 'Account created successfully!');
-        form.reset();
+        return;
       }
+
+      toast.success(result?.message || 'Account created and you are now logged in!');
+      // Refresh server components so the new session is picked up before
+      // navigating to the app shell.
+      router.refresh();
+      router.push('/');
     } catch {
       toast.error('An unexpected error occurred');
     } finally {
@@ -43,76 +53,85 @@ export function RegisterForm() {
   };
 
   return (
-    <div className="w-full max-w-[450px] space-y-6">
+    <div className="w-full space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold">Register to Byakuya</h1>
-        <p className="text-muted-foreground">Create your account to get started.</p>
+        <h1 className="font-sans text-3xl font-extrabold tracking-tight text-[#0b1220]">
+          Register to Byakuya
+        </h1>
+        <p className="font-sans text-base text-[#334155]">
+          Create your account to get started.
+        </p>
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <label htmlFor="name" className="text-sm font-medium">
+          <label htmlFor="name" className={labelClassName}>
             Name
           </label>
           <input
             id="name"
             type="text"
-            className="placeholder:text-muted-foreground focus:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm ring-0 outline-none focus:ring-2"
+            autoComplete="name"
+            placeholder="Your name"
+            className={inputClassName}
             {...form.register('name')}
           />
           {form.formState.errors.name && (
-            <p className="text-destructive text-sm">
+            <p className="font-sans text-sm text-[#b3261e]">
               {form.formState.errors.name.message}
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="email" className="text-sm font-medium">
+          <label htmlFor="email" className={labelClassName}>
             Email
           </label>
           <input
             id="email"
             type="email"
-            className="placeholder:text-muted-foreground focus:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm ring-0 outline-none focus:ring-2"
+            autoComplete="email"
+            placeholder="you@example.com"
+            className={inputClassName}
             {...form.register('email')}
           />
           {form.formState.errors.email && (
-            <p className="text-destructive text-sm">
+            <p className="font-sans text-sm text-[#b3261e]">
               {form.formState.errors.email.message}
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password" className="text-sm font-medium">
+          <label htmlFor="password" className={labelClassName}>
             Password
           </label>
           <input
             id="password"
             type="password"
-            className="placeholder:text-muted-foreground focus:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm ring-0 outline-none focus:ring-2"
+            autoComplete="new-password"
+            placeholder="••••••••"
+            className={inputClassName}
             {...form.register('password')}
           />
           {form.formState.errors.password && (
-            <p className="text-destructive text-sm">
+            <p className="font-sans text-sm text-[#b3261e]">
               {form.formState.errors.password.message}
             </p>
           )}
         </div>
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 mt-4 w-full rounded-md px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
-        >
+        <button type="submit" disabled={isLoading} className={submitButtonClassName}>
           {isLoading ? 'Creating account...' : 'Sign Up'}
         </button>
       </form>
 
-      <p className="text-center text-sm">
+      <p className="text-center font-sans text-base text-[#334155]">
         Already have an account?{' '}
-        <Link href="/login" className="text-primary font-medium">
+        <Link
+          href="/login"
+          className="font-semibold text-[#1b5e8a] underline decoration-2 underline-offset-4 hover:text-[#2171a6]"
+        >
           Login
         </Link>
       </p>

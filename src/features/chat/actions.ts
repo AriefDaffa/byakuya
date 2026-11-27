@@ -1,402 +1,439 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth/session';
+import { publishRealtimeEvent } from '@/lib/realtime/bus';
+import type { Attachment, Profile } from '@/types/database';
+import type { MessageWithSender } from '@/types/chat';
+import {
+  createAttachmentStoragePath,
+  deleteLocalAttachment,
+  getAttachmentUrl,
+  saveLocalAttachment,
+} from './attachments';
+import {
+  countConversationMessages,
+  deleteMessageRow,
+  ensureConversationMember,
+  fetchChatList,
+  fetchMessagesPage,
+  getConversationParticipantIds,
+  getOrCreatePrivateConversation,
+  getOwnedMessage,
+  insertAttachment,
+  insertMessage,
+  markConversationRead,
+  searchMessagesByTerm,
+  searchUsersByTerm,
+  softDeleteMessage,
+  updateMessageContent,
+} from './queries';
+import {
+  MAX_MESSAGE_LENGTH,
+  attachmentFileSchema,
+  conversationIdSchema,
+  firstZodError,
+  getPagination,
+  messageContentSchema,
+  messageIdSchema,
+  sanitizeSearchTerm,
+  searchKeywordSchema,
+  toIlikePattern,
+  userIdSchema,
+} from './schemas';
 
-const MESSAGES_PER_PAGE = 30;
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Something went wrong';
+}
+
+function resolvePattern(keyword: string): string | null {
+  const parsedKeyword = searchKeywordSchema.safeParse(keyword);
+  if (!parsedKeyword.success) return null;
+
+  const term = sanitizeSearchTerm(parsedKeyword.data);
+  if (term.length < 2) return null;
+
+  return toIlikePattern(term);
+}
+
+async function loadUser(): Promise<Profile | null> {
+  try {
+    return await getCurrentUser();
+  } catch {
+    return null;
+  }
+}
 
 /** Send a text message in a conversation */
 export async function sendMessage(conversationId: string, content: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await loadUser();
   if (!user) return { error: 'Not authenticated' };
-  if (!content.trim()) return { error: 'Message cannot be empty' };
 
-  const { data, error } = await supabase
-    .from('messages')
-    .insert({
-      conversation_id: conversationId,
-      sender_id: user.id,
-      content: content.trim(),
+  const parsedConversationId = conversationIdSchema.safeParse(conversationId);
+  if (!parsedConversationId.success) {
+    return { error: firstZodError(parsedConversationId.error) };
+  }
+
+  const parsedContent = messageContentSchema.safeParse(content);
+  if (!parsedContent.success) {
+    return { error: firstZodError(parsedContent.error) };
+  }
+
+  try {
+    const membershipError = await ensureConversationMember(
+      parsedConversationId.data,
+      user.id,
+    );
+    if (membershipError) return { error: membershipError };
+
+    const message = await insertMessage({
+      conversationId: parsedConversationId.data,
+      senderId: user.id,
+      content: parsedContent.data,
       type: 'text',
-    })
-    .select('*, sender:profiles!messages_sender_id_fkey(*)')
-    .single();
+    });
 
-  if (error) return { error: error.message };
-  return { data };
+    await publishRealtimeEvent({
+      type: 'message:insert',
+      conversationId: message.conversation_id,
+      message,
+    });
+
+    return { data: message };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
 }
 
-/** Send a message with file attachment */
+/** Send a message with a locally stored file attachment */
 export async function sendAttachment(
   conversationId: string,
   formData: FormData,
   caption?: string,
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await loadUser();
   if (!user) return { error: 'Not authenticated' };
 
-  const file = formData.get('file') as File | null;
-  if (!file) return { error: 'No file provided' };
+  const parsedConversationId = conversationIdSchema.safeParse(conversationId);
+  if (!parsedConversationId.success) {
+    return { error: firstZodError(parsedConversationId.error) };
+  }
 
-  // Upload file to storage
-  const fileExt = file.name.split('.').pop();
-  const storagePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+  const parsedFile = attachmentFileSchema.safeParse(formData.get('file'));
+  if (!parsedFile.success) {
+    return { error: firstZodError(parsedFile.error) };
+  }
 
-  const { error: uploadError } = await supabase.storage
-    .from('attachments')
-    .upload(storagePath, file);
+  let content = parsedFile.data.name.trim() || 'Attachment';
+  if (caption !== undefined && caption.trim() !== '') {
+    const parsedCaption = messageContentSchema.safeParse(caption);
+    if (!parsedCaption.success) {
+      return { error: firstZodError(parsedCaption.error) };
+    }
+    content = parsedCaption.data;
+  }
+  content = content.slice(0, MAX_MESSAGE_LENGTH);
 
-  if (uploadError) return { error: uploadError.message };
+  const membershipError = await ensureConversationMember(
+    parsedConversationId.data,
+    user.id,
+  );
+  if (membershipError) return { error: membershipError };
 
-  // Get public URL
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from('attachments').getPublicUrl(storagePath);
+  const file = parsedFile.data;
+  const storagePath = createAttachmentStoragePath(
+    parsedConversationId.data,
+    file.name,
+    file.type,
+  );
 
-  // Determine message type
-  const isImage = file.type.startsWith('image/');
-  const messageType = isImage ? 'image' : 'file';
+  try {
+    await saveLocalAttachment(storagePath, Buffer.from(await file.arrayBuffer()));
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
 
-  // Create message
-  const { data: message, error: msgError } = await supabase
-    .from('messages')
-    .insert({
-      conversation_id: conversationId,
-      sender_id: user.id,
-      content: caption || file.name,
+  const messageType = file.type.startsWith('image/') ? 'image' : 'file';
+
+  let message: MessageWithSender;
+  try {
+    message = await insertMessage({
+      conversationId: parsedConversationId.data,
+      senderId: user.id,
+      content,
       type: messageType,
-    })
-    .select('*, sender:profiles!messages_sender_id_fkey(*)')
-    .single();
+    });
+  } catch (error) {
+    await deleteLocalAttachment(storagePath).catch(() => undefined);
+    return { error: getErrorMessage(error) };
+  }
 
-  if (msgError) return { error: msgError.message };
+  const attachmentId = crypto.randomUUID();
+  let attachment: Attachment;
+  try {
+    attachment = await insertAttachment({
+      id: attachmentId,
+      messageId: message.id,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      fileUrl: getAttachmentUrl(attachmentId),
+      storagePath,
+    });
+  } catch (error) {
+    await deleteMessageRow(message.id).catch(() => undefined);
+    await deleteLocalAttachment(storagePath).catch(() => undefined);
+    return { error: getErrorMessage(error) };
+  }
 
-  // Create attachment record
-  const { error: attachError } = await supabase.from('attachments').insert({
-    message_id: message.id,
-    file_name: file.name,
-    file_type: file.type,
-    file_size: file.size,
-    file_url: publicUrl,
-    storage_path: storagePath,
-  });
-
-  if (attachError) return { error: attachError.message };
-
-  return {
-    data: {
-      ...message,
-      attachments: [
-        {
-          id: crypto.randomUUID(),
-          message_id: message.id,
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          file_url: publicUrl,
-          storage_path: storagePath,
-          created_at: new Date().toISOString(),
-        },
-      ],
-    },
+  const messageWithAttachment: MessageWithSender = {
+    ...message,
+    attachments: [attachment],
   };
+
+  try {
+    await publishRealtimeEvent({
+      type: 'message:insert',
+      conversationId: message.conversation_id,
+      message: messageWithAttachment,
+    });
+  } catch {
+    // The message is already persisted; a realtime hiccup must not fail it.
+  }
+
+  return { data: messageWithAttachment };
 }
 
 /** Edit a message (only own messages) */
 export async function editMessage(messageId: string, newContent: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await loadUser();
   if (!user) return { error: 'Not authenticated' };
-  if (!newContent.trim()) return { error: 'Message cannot be empty' };
 
-  const { data, error } = await supabase
-    .from('messages')
-    .update({
-      content: newContent.trim(),
-      is_edited: true,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', messageId)
-    .eq('sender_id', user.id)
-    .select('*, sender:profiles!messages_sender_id_fkey(*)')
-    .single();
+  const parsedMessageId = messageIdSchema.safeParse(messageId);
+  if (!parsedMessageId.success) {
+    return { error: firstZodError(parsedMessageId.error) };
+  }
 
-  if (error) return { error: error.message };
-  return { data };
+  const parsedContent = messageContentSchema.safeParse(newContent);
+  if (!parsedContent.success) {
+    return { error: firstZodError(parsedContent.error) };
+  }
+
+  try {
+    const ownedMessage = await getOwnedMessage(parsedMessageId.data, user.id);
+    if (ownedMessage.error) return { error: ownedMessage.error };
+
+    const message = await updateMessageContent({
+      messageId: parsedMessageId.data,
+      senderId: user.id,
+      content: parsedContent.data,
+    });
+    if (!message) return { error: 'Message not found' };
+
+    await publishRealtimeEvent({
+      type: 'message:update',
+      conversationId: message.conversation_id,
+      message,
+    });
+
+    return { data: message };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
 }
 
 /** Soft-delete a message (only own messages) */
 export async function deleteMessage(messageId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await loadUser();
   if (!user) return { error: 'Not authenticated' };
 
-  const { error } = await supabase
-    .from('messages')
-    .update({
-      is_deleted: true,
-      content: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', messageId)
-    .eq('sender_id', user.id);
+  const parsedMessageId = messageIdSchema.safeParse(messageId);
+  if (!parsedMessageId.success) {
+    return { error: firstZodError(parsedMessageId.error) };
+  }
 
-  if (error) return { error: error.message };
-  return { success: true };
+  try {
+    const ownedMessage = await getOwnedMessage(parsedMessageId.data, user.id);
+    if (ownedMessage.error) return { error: ownedMessage.error };
+
+    const conversationId = ownedMessage.message?.conversation_id;
+    if (!conversationId) return { error: 'Message not found' };
+
+    await softDeleteMessage({
+      messageId: parsedMessageId.data,
+      senderId: user.id,
+    });
+
+    await publishRealtimeEvent({
+      type: 'message:delete',
+      conversationId,
+      messageId: parsedMessageId.data,
+    });
+
+    return { success: true };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
 }
 
 /** Get paginated messages for a conversation */
 export async function getMessages(conversationId: string, page: number = 1) {
-  const supabase = await createClient();
+  const pagination = getPagination(page);
 
-  const from = (page - 1) * MESSAGES_PER_PAGE;
-  const to = from + MESSAGES_PER_PAGE - 1;
+  const user = await loadUser();
+  if (!user) {
+    return {
+      error: 'Not authenticated',
+      data: [],
+      totalPages: 0,
+      currentPage: 1,
+    };
+  }
 
-  const { data, error, count } = await supabase
-    .from('messages')
-    .select('*, sender:profiles!messages_sender_id_fkey(*)', { count: 'exact' })
-    .eq('conversation_id', conversationId)
-    .eq('is_deleted', false)
-    .order('created_at', { ascending: false })
-    .range(from, to);
+  const parsedConversationId = conversationIdSchema.safeParse(conversationId);
+  if (!parsedConversationId.success) {
+    return {
+      error: firstZodError(parsedConversationId.error),
+      data: [],
+      totalPages: 0,
+      currentPage: 1,
+    };
+  }
 
-  if (error) return { error: error.message, data: [], totalPages: 0, currentPage: page };
+  try {
+    const membershipError = await ensureConversationMember(
+      parsedConversationId.data,
+      user.id,
+    );
+    if (membershipError) {
+      return {
+        error: membershipError,
+        data: [],
+        totalPages: 0,
+        currentPage: pagination.page,
+      };
+    }
 
-  const totalPages = Math.ceil((count || 0) / MESSAGES_PER_PAGE);
+    const [rows, totalMessages] = await Promise.all([
+      fetchMessagesPage(parsedConversationId.data, pagination.limit, pagination.offset),
+      countConversationMessages(parsedConversationId.data),
+    ]);
 
-  return {
-    data: (data || []).reverse(), // Reverse to show oldest first
-    totalPages,
-    currentPage: page,
-    totalMessages: count || 0,
-  };
+    return {
+      data: rows.reverse(), // Reverse to show oldest first
+      totalPages: Math.ceil(totalMessages / pagination.limit),
+      currentPage: pagination.page,
+      totalMessages,
+    };
+  } catch (error) {
+    return {
+      error: getErrorMessage(error),
+      data: [],
+      totalPages: 0,
+      currentPage: pagination.page,
+    };
+  }
 }
 
 /** Get or create a private conversation with another user */
 export async function getOrCreateConversation(otherUserId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await loadUser();
   if (!user) return { error: 'Not authenticated' };
 
-  const { data, error } = await supabase.rpc('get_or_create_private_conversation', {
-    user1_id: user.id,
-    user2_id: otherUserId,
-  });
+  const parsedOtherUserId = userIdSchema.safeParse(otherUserId);
+  if (!parsedOtherUserId.success) {
+    return { error: firstZodError(parsedOtherUserId.error) };
+  }
 
-  if (error) return { error: error.message };
-  return { conversationId: data as string };
+  if (parsedOtherUserId.data === user.id) {
+    return { error: 'Cannot create a conversation with yourself' };
+  }
+
+  try {
+    const conversationId = await getOrCreatePrivateConversation(
+      user.id,
+      parsedOtherUserId.data,
+    );
+
+    // The conversation was created or reused, so both participants refresh
+    // their chat list and pick up the membership.
+    const participantIds = await getConversationParticipantIds(conversationId);
+    await publishRealtimeEvent({
+      type: 'conversation:update',
+      conversationId,
+      participantIds,
+    });
+
+    return { conversationId };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
 }
 
 /** Get chat list (conversations with latest messages) */
 export async function getChatList() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await loadUser();
   if (!user) return { error: 'Not authenticated', data: [] };
 
-  // Get all conversations the user is a member of
-  const { data: memberships, error: memberError } = await supabase
-    .from('conversation_members')
-    .select('conversation_id')
-    .eq('user_id', user.id);
-
-  if (memberError) return { error: memberError.message, data: [] };
-  if (!memberships?.length) return { data: [] };
-
-  const conversationIds = memberships.map((m) => m.conversation_id);
-
-  // Get conversations with members and latest message
-  const { data: conversations, error: convError } = await supabase
-    .from('conversations')
-    .select(
-      `
-      *,
-      conversation_members(
-        user_id,
-        last_read_at,
-        profiles:profiles(*)
-      )
-    `,
-    )
-    .in('id', conversationIds)
-    .order('updated_at', { ascending: false });
-
-  if (convError) return { error: convError.message, data: [] };
-
-  // Build chat list items
-  const chatList = await Promise.all(
-    (conversations || []).map(async (conv) => {
-      // Get client user's membership info
-      const members = (conv.conversation_members || []) as Array<{
-        user_id: string;
-        last_read_at: string;
-        profiles: {
-          id: string;
-          name: string;
-          email: string;
-          avatar_url: string | null;
-          status: string;
-          last_seen: string;
-          created_at: string;
-          updated_at: string;
-        };
-      }>;
-
-      // Find the other user in the conversation
-      const otherMember = members.find((m) => m.user_id !== user.id);
-      const currentMember = members.find((m) => m.user_id === user.id);
-
-      // Get latest message
-      const { data: lastMessages } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conv.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      const lastMessage = lastMessages?.[0] || null;
-
-      // Count unread messages
-      let unreadCount = 0;
-      if (currentMember?.last_read_at && lastMessage) {
-        const { count } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('conversation_id', conv.id)
-          .neq('sender_id', user.id)
-          .gt('created_at', currentMember.last_read_at);
-        unreadCount = count || 0;
-      }
-
-      return {
-        conversation: {
-          id: conv.id,
-          type: conv.type,
-          name: conv.name,
-          avatar_url: conv.avatar_url,
-          created_at: conv.created_at,
-          updated_at: conv.updated_at,
-        },
-        otherUser: otherMember?.profiles || null,
-        lastMessage,
-        unreadCount,
-      };
-    }),
-  );
-
-  return { data: chatList };
+  try {
+    const data = await fetchChatList(user.id);
+    return { data };
+  } catch (error) {
+    return { error: getErrorMessage(error), data: [] };
+  }
 }
 
 /** Mark messages in a conversation as read */
 export async function markAsRead(conversationId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await loadUser();
+  if (!user) return { error: 'Not authenticated' };
 
-  if (!user) return;
+  const parsedConversationId = conversationIdSchema.safeParse(conversationId);
+  if (!parsedConversationId.success) {
+    return { error: firstZodError(parsedConversationId.error) };
+  }
 
-  await supabase
-    .from('conversation_members')
-    .update({ last_read_at: new Date().toISOString() })
-    .eq('conversation_id', conversationId)
-    .eq('user_id', user.id);
+  try {
+    const membershipError = await ensureConversationMember(
+      parsedConversationId.data,
+      user.id,
+    );
+    if (membershipError) return { error: membershipError };
+
+    await markConversationRead(parsedConversationId.data, user.id);
+    return { success: true };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
 }
 
 /** Search users by name or email */
 export async function searchUsers(keyword: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await loadUser();
   if (!user) return { error: 'Not authenticated', data: [] };
-  if (keyword.length < 2) return { data: [] };
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .neq('id', user.id)
-    .or(`name.ilike.%${keyword}%,email.ilike.%${keyword}%`)
-    .limit(20);
+  const pattern = resolvePattern(keyword);
+  if (!pattern) return { data: [] };
 
-  if (error) return { error: error.message, data: [] };
-  return { data: data || [] };
+  try {
+    const data = await searchUsersByTerm(user.id, pattern);
+    return { data };
+  } catch (error) {
+    return { error: getErrorMessage(error), data: [] };
+  }
 }
 
 /** Search messages across all conversations the user is in */
 export async function searchMessages(keyword: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await loadUser();
   if (!user) return { error: 'Not authenticated', data: [] };
-  if (keyword.length < 2) return { data: [] };
 
-  // Get user's conversation IDs
-  const { data: memberships } = await supabase
-    .from('conversation_members')
-    .select('conversation_id')
-    .eq('user_id', user.id);
+  const pattern = resolvePattern(keyword);
+  if (!pattern) return { data: [] };
 
-  if (!memberships?.length) return { data: [] };
-
-  const conversationIds = memberships.map((m) => m.conversation_id);
-
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*, sender:profiles!messages_sender_id_fkey(*)')
-    .in('conversation_id', conversationIds)
-    .ilike('content', `%${keyword}%`)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  if (error) return { error: error.message, data: [] };
-  return { data: data || [] };
-}
-
-/** Update typing indicator */
-export async function setTypingIndicator(conversationId: string, isTyping: boolean) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return;
-
-  if (isTyping) {
-    await supabase.from('typing_indicators').upsert(
-      {
-        conversation_id: conversationId,
-        user_id: user.id,
-        started_at: new Date().toISOString(),
-      },
-      { onConflict: 'conversation_id,user_id' },
-    );
-  } else {
-    await supabase
-      .from('typing_indicators')
-      .delete()
-      .eq('conversation_id', conversationId)
-      .eq('user_id', user.id);
+  try {
+    const data = await searchMessagesByTerm(user.id, pattern);
+    return { data };
+  } catch (error) {
+    return { error: getErrorMessage(error), data: [] };
   }
 }

@@ -1,7 +1,8 @@
 'use client';
 
-import { Send, Paperclip, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PixelClipIcon, PixelSendIcon } from '@/components/ui/pixel-icons';
 import { useCallback, useRef } from 'react';
 import type { EditingMessage } from '@/types/chat';
 
@@ -16,7 +17,8 @@ interface MessageInputProps {
   disabled?: boolean;
 }
 
-const ACCEPTED_FILE_TYPES = 'image/*,.pdf,.doc,.docx,.txt,.zip,.rar';
+const ACCEPTED_FILE_TYPES =
+  'image/png,image/jpeg,image/gif,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.rtf';
 
 export function MessageInput({
   value,
@@ -32,7 +34,9 @@ export function MessageInput({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      // `isComposing` guards against sending while an IME candidate window is
+      // open (e.g. Japanese/Chinese input).
+      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
         onSend();
       }
@@ -60,17 +64,19 @@ export function MessageInput({
     <div className={cn('z-10 flex flex-col', className)}>
       {/* Edit mode banner */}
       {editingMessage && (
-        <div className="bg-muted/50 flex items-center gap-2 border-t px-4 py-2">
-          <div className="flex-1 truncate">
-            <p className="text-xs font-medium text-blue-500">Editing message</p>
-            <p className="text-muted-foreground truncate text-xs">
+        <div className="flex items-center gap-2 border-t-2 border-[#090c12] bg-[#232a42] px-3 py-2 sm:px-4">
+          <div className="min-w-0 flex-1">
+            <p className="font-sans text-[11px] font-semibold tracking-wider text-[var(--unread)] uppercase">
+              Editing message
+            </p>
+            <p className="text-muted-foreground truncate font-sans text-xs">
               {editingMessage.content}
             </p>
           </div>
           <button
             type="button"
             onClick={onCancelEdit}
-            className="hover:bg-accent inline-flex size-6 shrink-0 items-center justify-center rounded-full transition-colors"
+            className="pixel-btn bg-card text-foreground inline-flex size-7 shrink-0 items-center justify-center"
             aria-label="Cancel editing"
           >
             <X className="size-3.5" />
@@ -78,7 +84,7 @@ export function MessageInput({
         </div>
       )}
 
-      <div className="flex items-center gap-2 p-4">
+      <div className="flex items-center gap-2 border-t-2 border-[#090c12] bg-[#222847] p-3.5 shadow-[inset_0_2px_0_rgba(255,255,255,0.12)] sm:gap-2.5 sm:p-4">
         {/* Attachment button */}
         {onSendAttachment && !editingMessage && (
           <>
@@ -94,18 +100,18 @@ export function MessageInput({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
-              className="text-muted-foreground hover:text-foreground hover:bg-accent inline-flex size-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50"
+              className="pixel-btn bg-secondary text-secondary-foreground inline-flex size-12 shrink-0 items-center justify-center border-[#090c12] disabled:opacity-50"
               aria-label="Attach file"
             >
-              <Paperclip className="size-5" />
+              <PixelClipIcon className="size-6" />
             </button>
           </>
         )}
 
         <input
           type="text"
-          placeholder={editingMessage ? 'Edit your message...' : 'Type a message...'}
-          className="bg-muted/50 placeholder:text-muted-foreground focus:ring-ring flex-1 rounded-full border-0 px-4 py-2 text-sm ring-0 outline-none focus:ring-2"
+          placeholder={editingMessage ? 'Edit your message...' : 'Message...'}
+          className="pixel-input placeholder:text-muted-foreground h-12 min-w-0 flex-1 rounded-none px-3.5 font-sans text-base outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -118,14 +124,14 @@ export function MessageInput({
           onClick={onSend}
           disabled={disabled || !value.trim()}
           className={cn(
-            'inline-flex size-10 items-center justify-center rounded-full transition-colors disabled:opacity-50',
+            'pixel-btn inline-flex size-12 shrink-0 items-center justify-center border-[#090c12] text-white disabled:opacity-75',
             editingMessage
-              ? 'bg-blue-500 text-white hover:bg-blue-600'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90',
+              ? 'bg-[var(--unread)] text-[#090c12]'
+              : 'bg-[#16a34a] shadow-[inset_0_3px_0_#6ee7b7,3px_3px_0_#07090e] hover:bg-[#22c55e] md:bg-[#3346cf] md:shadow-[inset_0_3px_0_#7687ff,3px_3px_0_#07090e] md:hover:bg-[#3f54e6]',
           )}
           aria-label={editingMessage ? 'Save edit' : 'Send message'}
         >
-          <Send className="size-5" />
+          <PixelSendIcon className="size-6" />
         </button>
       </div>
     </div>

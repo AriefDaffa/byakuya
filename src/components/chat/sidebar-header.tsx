@@ -1,40 +1,82 @@
 'use client';
 
 import { signOut } from '@/features/auth/actions';
+import { useChatListStore } from '@/store/chat-list-store';
 import { useChatStore } from '@/store/chat-store';
-import { EllipsisVertical, LogOut, Moon, Paintbrush, Sun, User } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { PixelMenuIcon } from '@/components/ui/pixel-icons';
+import { LogOut, Moon, Paintbrush, Sun, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 
 interface SidebarHeaderProps {
   userName?: string;
 }
 
+const emptySubscribe = () => () => {};
+
+/**
+ * Hydration-safe "is the client mounted" flag.
+ * `useSyncExternalStore` returns `false` during SSR and `true` on the client
+ * without calling `setState` from an effect.
+ */
+function useIsMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
+
 export function SidebarHeader({ userName }: SidebarHeaderProps) {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsMounted();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { toggleProfile, selectedUser } = useChatStore();
+  const toggleProfile = useChatStore((state) => state.toggleProfile);
+  const selectedUser = useChatStore((state) => state.selectedUser);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const handleSignOut = () => {
+    // Clear all user-scoped state before signing out so it can never leak
+    // into the next session.
+    useChatStore.getState().resetChat();
+    useChatStore.setState({ isChatSliderOpen: false, isProfileOpen: false });
+
+    const chatListStore = useChatListStore.getState();
+    chatListStore.setChatList([]);
+    chatListStore.setSearchKeyword('');
+
+    setIsMenuOpen(false);
+    void signOut();
+  };
+
+  const displayName = userName?.trim() || 'Byakuya';
 
   return (
     <div className="flex items-center justify-between gap-2">
-      <div>
-        <p className="text-muted-foreground text-xs">Welcome,</p>
-        <h2 className="text-xl font-semibold">{userName}</h2>
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="relative shrink-0">
+          <Avatar className="size-12 border-2 border-[#090c12] shadow-[2px_2px_0_#07090e]">
+            <AvatarFallback>{displayName}</AvatarFallback>
+          </Avatar>
+          <span
+            className="absolute -right-0.5 -bottom-0.5 size-3 border-2 border-[#090c12] bg-[var(--online)]"
+            aria-hidden="true"
+          />
+        </div>
+        <h2 className="min-w-0 truncate font-sans text-base leading-tight font-bold">
+          {displayName}
+        </h2>
       </div>
+
       <div className="relative">
         <button
           type="button"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="hover:bg-accent inline-flex size-9 items-center justify-center rounded-md transition-colors"
+          className="pixel-btn bg-card text-foreground inline-flex size-10 items-center justify-center"
           aria-label="Open menu"
           aria-expanded={isMenuOpen}
         >
-          <EllipsisVertical className="size-4" />
+          <PixelMenuIcon className="size-4" />
         </button>
 
         {isMenuOpen && (
@@ -42,9 +84,11 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
             {/* Backdrop */}
             <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
             {/* Menu */}
-            <div className="bg-popover absolute right-0 z-50 mt-1 w-40 rounded-md border p-1 shadow-md">
-              <p className="px-2 py-1.5 text-sm font-semibold">Menu</p>
-              <div className="bg-border my-1 h-px" />
+            <div className="pixel-panel bg-popover absolute right-0 z-50 mt-2 w-44 rounded-none p-1">
+              <p className="text-muted-foreground px-2 py-1.5 font-sans text-[11px] font-semibold tracking-wider uppercase">
+                Menu
+              </p>
+              <div className="my-1 h-0.5 bg-[var(--pixel-frame)]" />
               <button
                 type="button"
                 onClick={() => {
@@ -53,7 +97,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
                   }
                   setIsMenuOpen(false);
                 }}
-                className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
+                className="hover:bg-accent flex w-full items-center gap-2 rounded-none px-2 py-2 font-sans text-sm font-medium"
               >
                 <User className="size-4" /> Profile
               </button>
@@ -64,7 +108,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
                     setTheme(theme === 'dark' ? 'light' : 'dark');
                     setIsMenuOpen(false);
                   }}
-                  className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
+                  className="hover:bg-accent flex w-full items-center gap-2 rounded-none px-2 py-2 font-sans text-sm font-medium"
                 >
                   <Paintbrush className="size-4" />
                   {theme === 'dark' ? (
@@ -78,11 +122,11 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
                   )}
                 </button>
               )}
-              <div className="bg-border my-1 h-px" />
+              <div className="my-1 h-0.5 bg-[var(--pixel-frame)]" />
               <button
                 type="button"
-                onClick={() => signOut()}
-                className="text-destructive hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
+                onClick={handleSignOut}
+                className="text-destructive hover:bg-accent flex w-full items-center gap-2 rounded-none px-2 py-2 font-sans text-sm font-medium"
               >
                 <LogOut className="size-4" /> Sign out
               </button>

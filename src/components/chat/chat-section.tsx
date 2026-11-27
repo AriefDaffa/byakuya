@@ -1,29 +1,25 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { Fragment, useCallback, useEffect, useRef } from 'react';
 import { useChatRoom } from '@/hooks/use-chat-room';
 import { useChatStore } from '@/store/chat-store';
 import { ChatHeader } from '@/components/chat/chat-header';
 import { MessageGroupComponent } from '@/components/chat/message-group';
 import { MessageInput } from '@/components/chat/message-input';
 import { Loader } from '@/components/ui/loader';
+import { formatMessageDate } from '@/lib/format';
 
-interface ChatSectionProps {
-  withHeader?: boolean;
-}
-
-export function ChatSection({ withHeader = true }: ChatSectionProps) {
+export function ChatSection() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
 
-  const {
-    selectedUser,
-    messageInput,
-    setMessageInput,
-    toggleProfile,
-    incrementPage,
-    editingMessage,
-    setEditingMessage,
-  } = useChatStore();
+  const selectedUser = useChatStore((state) => state.selectedUser);
+  const messageInput = useChatStore((state) => state.messageInput);
+  const setMessageInput = useChatStore((state) => state.setMessageInput);
+  const toggleProfile = useChatStore((state) => state.toggleProfile);
+  const incrementPage = useChatStore((state) => state.incrementPage);
+  const editingMessage = useChatStore((state) => state.editingMessage);
+  const setEditingMessage = useChatStore((state) => state.setEditingMessage);
 
   const {
     messageGroups,
@@ -38,8 +34,21 @@ export function ChatSection({ withHeader = true }: ChatSectionProps) {
     deleteMessage,
   } = useChatRoom();
 
+  // Scroll to the bottom on initial load and when a message is appended at the
+  // end of the list. Loading older pages prepends messages and must not move
+  // the viewport.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const lastGroup = messageGroups[messageGroups.length - 1];
+    const lastMessage = lastGroup?.messages[lastGroup.messages.length - 1];
+    const lastMessageId = lastMessage?.id ?? null;
+
+    if (lastMessageId !== null && lastMessageId !== lastMessageIdRef.current) {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: lastMessageIdRef.current === null ? 'auto' : 'smooth',
+      });
+    }
+
+    lastMessageIdRef.current = lastMessageId;
   }, [messageGroups]);
 
   // Handle edit initiation - populate input with message content
@@ -85,6 +94,22 @@ export function ChatSection({ withHeader = true }: ChatSectionProps) {
     [sendAttachment],
   );
 
+  // Insert a pixel date separator whenever the calendar day changes.
+  const groupsWithDateDividers = messageGroups.map((group, index) => {
+    const dateLabel = group.messages[0]
+      ? formatMessageDate(group.messages[0].created_at)
+      : undefined;
+    const previousGroup = messageGroups[index - 1];
+    const previousDateLabel = previousGroup?.messages[0]
+      ? formatMessageDate(previousGroup.messages[0].created_at)
+      : undefined;
+
+    return {
+      group,
+      dateLabel: dateLabel && dateLabel !== previousDateLabel ? dateLabel : null,
+    };
+  });
+
   if (!selectedUser) {
     return (
       <div className="text-muted-foreground flex size-full items-center justify-center border-r border-b">
@@ -95,41 +120,47 @@ export function ChatSection({ withHeader = true }: ChatSectionProps) {
 
   return (
     <div className="relative flex size-full flex-col border-r border-b">
-      {withHeader && (
-        <ChatHeader
-          avatar={selectedUser.avatar_url || ''}
-          name={selectedUser.name}
-          status={selectedUser.status}
-          onProfileClick={toggleProfile}
-        />
-      )}
+      <ChatHeader
+        avatar={selectedUser.avatar_url || ''}
+        name={selectedUser.name}
+        status={selectedUser.status}
+        onProfileClick={toggleProfile}
+      />
 
       <div className="flex-1 overflow-hidden">
         {isLoading ? (
           <Loader />
         ) : (
           <div className="flex h-full flex-col">
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="pixel-dither-bg flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {currentPage < totalPages && (
-                <div className="mb-4 flex w-full items-center justify-center">
+                <div className="flex w-full items-center justify-center">
                   <button
                     type="button"
                     onClick={incrementPage}
                     disabled={isFetching}
-                    className="hover:bg-accent rounded-full border px-4 py-2 text-sm transition-colors disabled:opacity-50"
+                    className="pixel-btn bg-card cursor-pointer px-4 py-2 font-sans text-xs font-semibold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isFetching ? 'Loading...' : 'Load older messages'}
                   </button>
                 </div>
               )}
-              {messageGroups.map((group, idx) => (
-                <MessageGroupComponent
-                  key={`${group.senderId}-${idx}`}
-                  currentUserId={currentUserId || ''}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  {...group}
-                />
+              {groupsWithDateDividers.map(({ group, dateLabel }, idx) => (
+                <Fragment key={group.messages[0]?.id ?? idx}>
+                  {dateLabel && (
+                    <div className="my-2 flex w-full items-center justify-center">
+                      <span className="pixel-box bg-card px-3 py-1 font-sans text-xs font-semibold tracking-wide opacity-80">
+                        {dateLabel}
+                      </span>
+                    </div>
+                  )}
+                  <MessageGroupComponent
+                    currentUserId={currentUserId || ''}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    {...group}
+                  />
+                </Fragment>
               ))}
               <div ref={messagesEndRef} />
             </div>
