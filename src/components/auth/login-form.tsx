@@ -58,24 +58,26 @@ export function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-[450px] space-y-6">
+    <div className="w-full space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold">Welcome Back to Byakuya</h1>
-        <p className="text-muted-foreground">
+        <h1 className="font-pixel text-2xl font-bold tracking-tight">
+          Welcome Back to Byakuya
+        </h1>
+        <p className="text-muted-foreground text-sm">
           Enter your email and password to continue.
         </p>
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <label htmlFor="email" className="text-sm font-medium">
+          <label htmlFor="email" className="font-pixel-mono text-sm font-semibold">
             Email
           </label>
           <input
             id="email"
             type="email"
             autoComplete="email"
-            className="placeholder:text-muted-foreground focus:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm ring-0 outline-none focus:ring-2"
+            className="pixel-input placeholder:text-muted-foreground w-full rounded-none px-3 py-2.5 text-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
             {...form.register('email')}
           />
           {form.formState.errors.email && (
@@ -86,14 +88,14 @@ export function LoginForm() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password" className="text-sm font-medium">
+          <label htmlFor="password" className="font-pixel-mono text-sm font-semibold">
             Password
           </label>
           <input
             id="password"
             type="password"
             autoComplete="current-password"
-            className="placeholder:text-muted-foreground focus:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm ring-0 outline-none focus:ring-2"
+            className="pixel-input placeholder:text-muted-foreground w-full rounded-none px-3 py-2.5 text-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
             {...form.register('password')}
           />
           {form.formState.errors.password && (
@@ -106,7 +108,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 mt-4 w-full rounded-md px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+          className="pixel-btn bg-primary text-primary-foreground font-pixel mt-2 w-full rounded-none py-2.5 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isLoading ? 'Signing in...' : 'Sign In'}
         </button>
@@ -114,7 +116,10 @@ export function LoginForm() {
 
       <p className="text-center text-sm">
         Don&apos;t have an account?{' '}
-        <Link href="/register" className="text-primary font-medium">
+        <Link
+          href="/register"
+          className="text-primary font-semibold underline decoration-2 underline-offset-4"
+        >
           Register
         </Link>
       </p>
