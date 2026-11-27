@@ -72,20 +72,20 @@ function PixelCornerBracket({ corner }: { corner: Corner }) {
 
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="pixel-auth-bg flex min-h-dvh items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-[490px] border-2 border-[#090c12] bg-[#d8e0ec] text-[#0f172a] shadow-[6px_6px_0_#07090e]">
+    <div className="pixel-auth-bg flex min-h-dvh items-center justify-center p-4">
+      <div className="w-full max-w-[440px] border-2 border-[#090c12] bg-[#d8e0ec] text-[#0f172a] shadow-[6px_6px_0_#07090e]">
         <div className="m-1.5 flex flex-col border-2 border-[#475569] bg-[#dde4ef]">
-          <div className="flex items-center justify-between border-b-2 border-[#475569] bg-[#1d283a] px-4 py-3 text-[#f8fafc]">
-            <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-between border-b-2 border-[#475569] bg-[#1d283a] px-3.5 py-2.5 text-[#f8fafc]">
+            <div className="flex items-center gap-2">
               <PixelCrestIcon className="size-5" />
-              <span className="font-pixel-mono text-base font-bold tracking-widest">
+              <span className="font-pixel-mono text-sm font-bold tracking-wider">
                 BYAKUYA
               </span>
             </div>
             <PixelWindowControls />
           </div>
 
-          <div className="relative p-7 sm:p-8">
+          <div className="relative p-5 sm:p-6">
             <PixelCornerBracket corner="top-left" />
             <PixelCornerBracket corner="top-right" />
             <PixelCornerBracket corner="bottom-right" />

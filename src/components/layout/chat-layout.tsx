@@ -62,7 +62,7 @@ export function ChatLayout({
       </div>
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
-        <div className="flex min-h-0 w-full shrink-0 md:w-[340px] lg:w-[400px]">
+        <div className="flex min-h-0 w-full shrink-0 md:w-[320px] lg:w-[350px]">
           <div className="min-h-0 w-full">{sidebar}</div>
         </div>
 

@@ -9,12 +9,12 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 const inputClassName =
-  'h-11 w-full rounded-none border-2 border-[#0b0e14] bg-[#f4f7fb] px-3.5 font-sans text-base text-[#0f172a] shadow-[inset_2px_2px_0_rgba(0,0,0,0.22)] outline-none placeholder:text-[#64748b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1b5e8a]';
+  'h-10 w-full rounded-none border-2 border-[#0b0e14] bg-[#e6edf5] px-3.5 font-sans text-base text-[#0f172a] shadow-[inset_2px_2px_0_rgba(0,0,0,0.22)] outline-none placeholder:text-[#64748b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1b5e8a]';
 
-const labelClassName = 'font-sans text-base font-semibold text-[#0b1220]';
+const labelClassName = 'font-sans text-sm font-semibold text-[#0b1220]';
 
 const submitButtonClassName =
-  'pixel-btn relative mt-2 h-12 w-full rounded-none bg-[#1b5e8a] font-sans text-lg font-bold text-white before:pointer-events-none before:absolute before:inset-x-0.5 before:top-0.5 before:h-0.5 before:bg-white/40 hover:bg-[#2271a6] disabled:cursor-not-allowed disabled:opacity-60';
+  'pixel-btn relative mt-1 h-11 w-full rounded-none bg-[#1b5e8a] font-sans text-base font-bold text-white before:pointer-events-none before:absolute before:inset-x-0.5 before:top-0.5 before:h-0.5 before:bg-white/40 hover:bg-[#2271a6] disabled:cursor-not-allowed disabled:opacity-60';
 
 /**
  * `redirect()` inside a server action rejects the client promise with a
@@ -66,18 +66,18 @@ export function LoginForm() {
   };
 
   return (
-    <div className="w-full space-y-6">
-      <div className="space-y-2 text-center">
-        <h1 className="font-sans text-3xl font-extrabold tracking-tight text-[#0b1220]">
+    <div className="w-full space-y-4">
+      <div className="space-y-1 text-center">
+        <h1 className="font-sans text-2xl font-extrabold tracking-tight text-[#0b1220]">
           Welcome Back to Byakuya
         </h1>
-        <p className="font-sans text-base text-[#334155]">
+        <p className="font-sans text-sm text-[#1e293b]">
           Enter your email and password to continue.
         </p>
       </div>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-2">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+        <div className="space-y-1">
           <label htmlFor="email" className={labelClassName}>
             Email
           </label>
@@ -96,7 +96,7 @@ export function LoginForm() {
           )}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1">
           <label htmlFor="password" className={labelClassName}>
             Password
           </label>
@@ -120,7 +120,7 @@ export function LoginForm() {
         </button>
       </form>
 
-      <p className="text-center font-sans text-base text-[#334155]">
+      <p className="text-center font-sans text-sm text-[#1e293b]">
         Don&apos;t have an account?{' '}
         <Link
           href="/register"

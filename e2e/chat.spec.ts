@@ -22,7 +22,7 @@ test.describe('Full end-to-end chat flow (Postgres + SSE + Local Storage)', () =
       await pageA.getByLabel('Password').fill(password);
       await pageA.getByRole('button', { name: 'Sign Up' }).click();
       await expect(pageA).toHaveURL('/');
-      await expect(pageA.getByPlaceholder('Search users or messages...')).toBeVisible();
+      await expect(pageA.getByPlaceholder('Search...')).toBeVisible();
 
       // 2. Register Bob
       await pageB.goto('/register');
@@ -31,16 +31,16 @@ test.describe('Full end-to-end chat flow (Postgres + SSE + Local Storage)', () =
       await pageB.getByLabel('Password').fill(password);
       await pageB.getByRole('button', { name: 'Sign Up' }).click();
       await expect(pageB).toHaveURL('/');
-      await expect(pageB.getByPlaceholder('Search users or messages...')).toBeVisible();
+      await expect(pageB.getByPlaceholder('Search...')).toBeVisible();
 
       // 3. Alice searches for Bob and opens DM
-      await pageA.getByPlaceholder('Search users or messages...').fill(`Bob ${suffix}`);
+      await pageA.getByPlaceholder('Search...').fill(`Bob ${suffix}`);
       await pageA.getByRole('button', { name: new RegExp(`Bob ${suffix}`) }).click();
-      await expect(pageA.getByPlaceholder('Type a message...')).toBeVisible();
+      await expect(pageA.getByPlaceholder('Write a message...')).toBeVisible();
 
       // 4. Alice sends a message -> Bob receives it live via SSE
       const firstMsg = `Hello Bob ${suffix}`;
-      await pageA.getByPlaceholder('Type a message...').fill(firstMsg);
+      await pageA.getByPlaceholder('Write a message...').fill(firstMsg);
       await pageA.getByRole('button', { name: 'Send message' }).click();
       await expect(pageA.getByText(firstMsg)).toBeVisible();
 
@@ -53,7 +53,7 @@ test.describe('Full end-to-end chat flow (Postgres + SSE + Local Storage)', () =
 
       // 5. Bob replies -> Alice receives it live without reload
       const replyMsg = `Hi Alice ${suffix}`;
-      await pageB.getByPlaceholder('Type a message...').fill(replyMsg);
+      await pageB.getByPlaceholder('Write a message...').fill(replyMsg);
       await pageB.getByRole('button', { name: 'Send message' }).click();
       await expect(pageA.getByText(replyMsg)).toBeVisible({ timeout: 10000 });
 

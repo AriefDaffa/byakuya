@@ -25,7 +25,7 @@ export function ChatListItemComponent({
       onClick={onClick}
       className={cn(
         'hover:bg-accent relative flex min-h-[84px] w-full items-center gap-3 border-b-2 border-[#0b0e14]/70 px-4 py-2.5 text-left transition-colors',
-        isActive && 'bg-accent',
+        isActive && 'bg-[#2a3352] dark:bg-[#2a3352]',
       )}
       aria-label={`Chat with ${otherUser?.name}`}
     >

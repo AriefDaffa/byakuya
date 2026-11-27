@@ -103,7 +103,7 @@ export function MessageInput({
               className="pixel-btn bg-secondary text-secondary-foreground inline-flex size-11 shrink-0 items-center justify-center border-[#090c12] disabled:opacity-50"
               aria-label="Attach file"
             >
-              <PixelClipIcon className="size-5" />
+              <PixelClipIcon className="size-6" />
             </button>
           </>
         )}
@@ -124,14 +124,14 @@ export function MessageInput({
           onClick={onSend}
           disabled={disabled || !value.trim()}
           className={cn(
-            'pixel-btn inline-flex size-11 shrink-0 items-center justify-center border-[#090c12] text-white disabled:opacity-50',
+            'pixel-btn inline-flex size-11 shrink-0 items-center justify-center border-[#090c12] text-white disabled:opacity-75',
             editingMessage
               ? 'bg-[var(--unread)] text-[#090c12]'
-              : 'bg-[#16a34a] hover:bg-[#22c55e] md:bg-[#3144c8] md:hover:bg-[#3b50e0]',
+              : 'bg-[#10b981] hover:bg-[#34d399] md:bg-[#3144c8] md:hover:bg-[#3b50e0]',
           )}
           aria-label={editingMessage ? 'Save edit' : 'Send message'}
         >
-          <PixelSendIcon className="size-5" />
+          <PixelSendIcon className="size-6" />
         </button>
       </div>
     </div>
