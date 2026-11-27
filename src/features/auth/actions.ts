@@ -201,3 +201,27 @@ export async function updateStatus(
 export async function getMe(): Promise<Profile | null> {
   return getCurrentUser();
 }
+
+const PIXEL_AVATAR_REGEX = /^pixel:[0-9a-z]{256}$/;
+
+export async function updatePixelAvatar(
+  pixelData: string,
+): Promise<{ success: boolean; error?: string; avatarUrl?: string }> {
+  if (!PIXEL_AVATAR_REGEX.test(pixelData)) {
+    return { success: false, error: 'Invalid 16x16 pixel avatar format' };
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, error: 'Not authenticated' };
+  }
+
+  await query(
+    `UPDATE public.users
+     SET avatar_url = $2, updated_at = NOW()
+     WHERE id = $1`,
+    [user.id, pixelData],
+  );
+
+  return { success: true, avatarUrl: pixelData };
+}

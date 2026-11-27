@@ -1,6 +1,7 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth/session';
+import { parseSlashCommand } from '@/lib/commands';
 import { publishRealtimeEvent } from '@/lib/realtime/bus';
 import type { Attachment, Profile } from '@/types/database';
 import type { MessageWithSender } from '@/types/chat';
@@ -11,20 +12,28 @@ import {
   saveLocalAttachment,
 } from './attachments';
 import {
+  addGroupMemberQuery,
   countConversationMessages,
+  createGroupConversationQuery,
   deleteMessageRow,
   ensureConversationMember,
   fetchChatList,
   fetchMessagesPage,
+  fetchPinnedMessages,
   getConversationParticipantIds,
   getOrCreatePrivateConversation,
   getOwnedMessage,
   insertAttachment,
   insertMessage,
+  isConversationAdmin,
   markConversationRead,
+  removeGroupMemberQuery,
+  searchConversationMessagesQuery,
   searchMessagesByTerm,
   searchUsersByTerm,
   softDeleteMessage,
+  toggleMessagePin,
+  toggleMessageReaction,
   updateMessageContent,
 } from './queries';
 import {
@@ -33,8 +42,11 @@ import {
   conversationIdSchema,
   firstZodError,
   getPagination,
+  groupMemberIdsSchema,
+  groupNameSchema,
   messageContentSchema,
   messageIdSchema,
+  reactionEmojiSchema,
   sanitizeSearchTerm,
   searchKeywordSchema,
   toIlikePattern,
@@ -63,8 +75,12 @@ async function loadUser(): Promise<Profile | null> {
   }
 }
 
-/** Send a text message in a conversation */
-export async function sendMessage(conversationId: string, content: string) {
+/** Send a text message (or slash command) in a conversation, with optional reply target */
+export async function sendMessage(
+  conversationId: string,
+  content: string,
+  replyToId?: string | null,
+) {
   const user = await loadUser();
   if (!user) return { error: 'Not authenticated' };
 
@@ -78,6 +94,15 @@ export async function sendMessage(conversationId: string, content: string) {
     return { error: firstZodError(parsedContent.error) };
   }
 
+  let validatedReplyToId: string | null = null;
+  if (replyToId) {
+    const parsedReplyId = messageIdSchema.safeParse(replyToId);
+    if (!parsedReplyId.success) {
+      return { error: firstZodError(parsedReplyId.error) };
+    }
+    validatedReplyToId = parsedReplyId.data;
+  }
+
   try {
     const membershipError = await ensureConversationMember(
       parsedConversationId.data,
@@ -85,11 +110,16 @@ export async function sendMessage(conversationId: string, content: string) {
     );
     if (membershipError) return { error: membershipError };
 
+    const slashResult = parseSlashCommand(parsedContent.data, user.name);
+    const finalContent = slashResult ? slashResult.content : parsedContent.data;
+    const finalType = slashResult ? slashResult.type : 'text';
+
     const message = await insertMessage({
       conversationId: parsedConversationId.data,
       senderId: user.id,
-      content: parsedContent.data,
-      type: 'text',
+      content: finalContent,
+      type: finalType,
+      replyToId: validatedReplyToId,
     });
 
     await publishRealtimeEvent({
@@ -435,5 +465,239 @@ export async function searchMessages(keyword: string) {
     return { data };
   } catch (error) {
     return { error: getErrorMessage(error), data: [] };
+  }
+}
+
+/** Toggle a pixel emote reaction on a message */
+export async function toggleReaction(messageId: string, emoji: string) {
+  const user = await loadUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const parsedMessageId = messageIdSchema.safeParse(messageId);
+  if (!parsedMessageId.success) {
+    return { error: firstZodError(parsedMessageId.error) };
+  }
+
+  const parsedEmoji = reactionEmojiSchema.safeParse(emoji);
+  if (!parsedEmoji.success) {
+    return { error: firstZodError(parsedEmoji.error) };
+  }
+
+  try {
+    const updated = await toggleMessageReaction({
+      messageId: parsedMessageId.data,
+      userId: user.id,
+      emoji: parsedEmoji.data,
+    });
+    if (!updated) return { error: 'Message not found' };
+
+    const membershipError = await ensureConversationMember(
+      updated.conversationId,
+      user.id,
+    );
+    if (membershipError) return { error: membershipError };
+
+    await publishRealtimeEvent({
+      type: 'reaction:toggle',
+      conversationId: updated.conversationId,
+      messageId: parsedMessageId.data,
+      reactions: updated.reactions,
+    });
+
+    return { data: updated.reactions };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
+}
+
+/** Toggle pin status on a message */
+export async function togglePinMessage(messageId: string) {
+  const user = await loadUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const parsedMessageId = messageIdSchema.safeParse(messageId);
+  if (!parsedMessageId.success) {
+    return { error: firstZodError(parsedMessageId.error) };
+  }
+
+  try {
+    const updated = await toggleMessagePin({
+      messageId: parsedMessageId.data,
+      userId: user.id,
+    });
+    if (!updated) return { error: 'Message not found' };
+
+    const membershipError = await ensureConversationMember(
+      updated.conversationId,
+      user.id,
+    );
+    if (membershipError) return { error: membershipError };
+
+    await publishRealtimeEvent({
+      type: 'message:pin',
+      conversationId: updated.conversationId,
+      messageId: parsedMessageId.data,
+      isPinned: updated.isPinned,
+      pinnedAt: updated.pinnedAt,
+      pinnedBy: updated.pinnedBy,
+    });
+
+    return { data: updated };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
+}
+
+/** Get pinned messages in a conversation */
+export async function getPinnedMessages(conversationId: string) {
+  const user = await loadUser();
+  if (!user) return { error: 'Not authenticated', data: [] };
+
+  const parsedConversationId = conversationIdSchema.safeParse(conversationId);
+  if (!parsedConversationId.success) {
+    return { error: firstZodError(parsedConversationId.error), data: [] };
+  }
+
+  try {
+    const membershipError = await ensureConversationMember(
+      parsedConversationId.data,
+      user.id,
+    );
+    if (membershipError) return { error: membershipError, data: [] };
+
+    const data = await fetchPinnedMessages(parsedConversationId.data);
+    return { data };
+  } catch (error) {
+    return { error: getErrorMessage(error), data: [] };
+  }
+}
+
+/** Search messages inside a specific conversation */
+export async function searchConversationMessages(
+  conversationId: string,
+  keyword: string,
+) {
+  const user = await loadUser();
+  if (!user) return { error: 'Not authenticated', data: [] };
+
+  const parsedConversationId = conversationIdSchema.safeParse(conversationId);
+  if (!parsedConversationId.success) {
+    return { error: firstZodError(parsedConversationId.error), data: [] };
+  }
+
+  const pattern = resolvePattern(keyword);
+  if (!pattern) return { data: [] };
+
+  try {
+    const membershipError = await ensureConversationMember(
+      parsedConversationId.data,
+      user.id,
+    );
+    if (membershipError) return { error: membershipError, data: [] };
+
+    const data = await searchConversationMessagesQuery(
+      parsedConversationId.data,
+      pattern,
+    );
+    return { data };
+  } catch (error) {
+    return { error: getErrorMessage(error), data: [] };
+  }
+}
+
+/** Create a new group conversation */
+export async function createGroupConversation(name: string, memberIds: string[]) {
+  const user = await loadUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const parsedName = groupNameSchema.safeParse(name);
+  if (!parsedName.success) {
+    return { error: firstZodError(parsedName.error) };
+  }
+
+  const parsedMembers = groupMemberIdsSchema.safeParse(memberIds);
+  if (!parsedMembers.success) {
+    return { error: firstZodError(parsedMembers.error) };
+  }
+
+  try {
+    const conversationId = await createGroupConversationQuery({
+      creatorId: user.id,
+      name: parsedName.data,
+      memberIds: parsedMembers.data,
+    });
+
+    const participantIds = await getConversationParticipantIds(conversationId);
+    await publishRealtimeEvent({
+      type: 'conversation:update',
+      conversationId,
+      participantIds,
+    });
+
+    return { conversationId };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
+}
+
+/** Add a member to a group conversation (admin only) */
+export async function addGroupMember(conversationId: string, userId: string) {
+  const user = await loadUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const parsedConv = conversationIdSchema.safeParse(conversationId);
+  if (!parsedConv.success) return { error: firstZodError(parsedConv.error) };
+
+  const parsedUser = userIdSchema.safeParse(userId);
+  if (!parsedUser.success) return { error: firstZodError(parsedUser.error) };
+
+  try {
+    const admin = await isConversationAdmin(parsedConv.data, user.id);
+    if (!admin) return { error: 'Only group admins can add members' };
+
+    await addGroupMemberQuery(parsedConv.data, parsedUser.data);
+    const participantIds = await getConversationParticipantIds(parsedConv.data);
+    await publishRealtimeEvent({
+      type: 'conversation:update',
+      conversationId: parsedConv.data,
+      participantIds,
+    });
+
+    return { success: true };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
+}
+
+/** Remove a member from a group conversation (admin or self-leave) */
+export async function removeGroupMember(conversationId: string, userId: string) {
+  const user = await loadUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const parsedConv = conversationIdSchema.safeParse(conversationId);
+  if (!parsedConv.success) return { error: firstZodError(parsedConv.error) };
+
+  const parsedUser = userIdSchema.safeParse(userId);
+  if (!parsedUser.success) return { error: firstZodError(parsedUser.error) };
+
+  try {
+    const isSelf = parsedUser.data === user.id;
+    const admin = await isConversationAdmin(parsedConv.data, user.id);
+    if (!isSelf && !admin) {
+      return { error: 'Only group admins can remove other members' };
+    }
+
+    const participantIdsBefore = await getConversationParticipantIds(parsedConv.data);
+    await removeGroupMemberQuery(parsedConv.data, parsedUser.data);
+
+    await publishRealtimeEvent({
+      type: 'conversation:update',
+      conversationId: parsedConv.data,
+      participantIds: participantIdsBefore,
+    });
+
+    return { success: true };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
   }
 }

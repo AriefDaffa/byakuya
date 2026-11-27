@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { updateStatus } from '@/features/auth/actions';
 import type { RealtimeEvent } from '@/lib/realtime/bus';
-import type { MessageWithSender } from '@/types/chat';
+import type { MessageWithSender, ReactionSummary } from '@/types/chat';
 
 /**
  * Client-side realtime transport.
@@ -20,6 +20,9 @@ const REALTIME_EVENT_TYPES = [
   'message:delete',
   'conversation:update',
   'presence:sync',
+  'reaction:toggle',
+  'message:pin',
+  'typing:update',
 ] as const satisfies ReadonlyArray<RealtimeEvent['type']>;
 
 type RealtimeListener = (event: RealtimeEvent) => void;
@@ -180,24 +183,33 @@ interface UseRealtimeMessagesOptions {
   onNewMessage?: (message: MessageWithSender) => void;
   onMessageUpdate?: (message: MessageWithSender) => void;
   onMessageDelete?: (messageId: string) => void;
+  onReactionToggle?: (messageId: string, reactions: ReactionSummary[]) => void;
+  onMessagePin?: (
+    messageId: string,
+    isPinned: boolean,
+    pinnedAt: string | null,
+    pinnedBy: string | null,
+  ) => void;
 }
 
 /**
- * Subscribe to realtime message inserts, updates and deletes for a conversation.
- *
- * Events arrive as fully hydrated `MessageWithSender` payloads, so no extra
- * client-side database lookup is required.
+ * Subscribe to realtime message inserts, updates, deletes, reactions, and pins
+ * for a conversation.
  */
 export function useRealtimeMessages({
   conversationId,
   onNewMessage,
   onMessageUpdate,
   onMessageDelete,
+  onReactionToggle,
+  onMessagePin,
 }: UseRealtimeMessagesOptions) {
   const handlersRef = useLatestRef({
     onNewMessage,
     onMessageUpdate,
     onMessageDelete,
+    onReactionToggle,
+    onMessagePin,
   });
 
   useEffect(() => {
@@ -221,6 +233,25 @@ export function useRealtimeMessages({
       if (event.type === 'message:delete') {
         if (event.conversationId === conversationId) {
           handlersRef.current.onMessageDelete?.(event.messageId);
+        }
+        return;
+      }
+
+      if (event.type === 'reaction:toggle') {
+        if (event.conversationId === conversationId) {
+          handlersRef.current.onReactionToggle?.(event.messageId, event.reactions);
+        }
+        return;
+      }
+
+      if (event.type === 'message:pin') {
+        if (event.conversationId === conversationId) {
+          handlersRef.current.onMessagePin?.(
+            event.messageId,
+            event.isPinned,
+            event.pinnedAt,
+            event.pinnedBy,
+          );
         }
       }
     });
@@ -303,4 +334,102 @@ export function usePresence(userId: string | null): string[] {
   }, [userId]);
 
   return userId ? onlineUserIds : EMPTY_ONLINE_USER_IDS;
+}
+
+const TYPING_TIMEOUT_MS = 3500;
+
+/**
+ * Track active typers in a conversation and provide a throttled sender.
+ */
+export function useTypingIndicator(
+  conversationId: string | null,
+  currentUserId: string | null,
+) {
+  const [typers, setTypers] = useState<
+    Array<{ conversationId: string; userId: string; userName: string }>
+  >([]);
+  const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const lastSentRef = useRef<number>(0);
+
+  useEffect(() => {
+    const activeTimeouts = timeoutsRef.current;
+
+    if (!conversationId) return;
+
+    const unsubscribe = subscribeRealtimeEvents((event) => {
+      if (event.type !== 'typing:update') return;
+      if (event.conversationId !== conversationId) return;
+      if (event.userId === currentUserId) return;
+
+      const existingTimer = activeTimeouts.get(event.userId);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        activeTimeouts.delete(event.userId);
+      }
+
+      if (!event.isTyping) {
+        setTypers((prev) =>
+          prev.filter(
+            (t) => !(t.conversationId === conversationId && t.userId === event.userId),
+          ),
+        );
+        return;
+      }
+
+      setTypers((prev) => {
+        if (
+          prev.some(
+            (t) => t.conversationId === conversationId && t.userId === event.userId,
+          )
+        ) {
+          return prev;
+        }
+        return [
+          ...prev,
+          { conversationId, userId: event.userId, userName: event.userName },
+        ];
+      });
+
+      const timer = setTimeout(() => {
+        activeTimeouts.delete(event.userId);
+        setTypers((prev) =>
+          prev.filter(
+            (t) => !(t.conversationId === conversationId && t.userId === event.userId),
+          ),
+        );
+      }, TYPING_TIMEOUT_MS);
+
+      activeTimeouts.set(event.userId, timer);
+    });
+
+    return () => {
+      unsubscribe();
+      for (const timer of activeTimeouts.values()) {
+        clearTimeout(timer);
+      }
+      activeTimeouts.clear();
+    };
+  }, [conversationId, currentUserId]);
+
+  const sendTyping = useCallback(
+    (isTyping: boolean) => {
+      if (!conversationId) return;
+      const now = Date.now();
+      if (isTyping && now - lastSentRef.current < 1500) return;
+      lastSentRef.current = isTyping ? now : 0;
+
+      void fetch('/api/realtime/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, isTyping }),
+      }).catch(() => {});
+    },
+    [conversationId],
+  );
+
+  const typingUsers = conversationId
+    ? typers.filter((t) => t.conversationId === conversationId)
+    : [];
+
+  return { typingUsers, sendTyping };
 }

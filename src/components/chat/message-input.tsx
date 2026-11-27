@@ -3,8 +3,9 @@
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PixelClipIcon, PixelSendIcon } from '@/components/ui/pixel-icons';
+import { SLASH_COMMANDS_HELP } from '@/lib/commands';
 import { useCallback, useRef } from 'react';
-import type { EditingMessage } from '@/types/chat';
+import type { EditingMessage, ReplyPreview } from '@/types/chat';
 
 interface MessageInputProps {
   value: string;
@@ -13,6 +14,9 @@ interface MessageInputProps {
   onSendAttachment?: (file: File, caption?: string) => void;
   editingMessage?: EditingMessage | null;
   onCancelEdit?: () => void;
+  replyingTo?: ReplyPreview | null;
+  onCancelReply?: () => void;
+  onTyping?: (isTyping: boolean) => void;
   className?: string;
   disabled?: boolean;
 }
@@ -27,6 +31,9 @@ export function MessageInput({
   onSendAttachment,
   editingMessage,
   onCancelEdit,
+  replyingTo,
+  onCancelReply,
+  onTyping,
   className,
   disabled,
 }: MessageInputProps) {
@@ -40,13 +47,20 @@ export function MessageInput({
         e.preventDefault();
         onSend();
       }
-      if (e.key === 'Escape' && editingMessage) {
-        e.preventDefault();
-        onCancelEdit?.();
+      if (e.key === 'Escape') {
+        if (editingMessage) {
+          e.preventDefault();
+          onCancelEdit?.();
+        } else if (replyingTo) {
+          e.preventDefault();
+          onCancelReply?.();
+        }
       }
     },
-    [onSend, editingMessage, onCancelEdit],
+    [onSend, editingMessage, onCancelEdit, replyingTo, onCancelReply],
   );
+
+  const showSlashHints = !editingMessage && value.startsWith('/') && !value.includes(' ');
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,7 +75,53 @@ export function MessageInput({
   );
 
   return (
-    <div className={cn('z-10 flex flex-col', className)}>
+    <div className={cn('relative z-10 flex flex-col', className)}>
+      {/* Slash command hints */}
+      {showSlashHints && (
+        <div className="pixel-panel bg-popover mx-3 mb-1 p-2 sm:mx-4">
+          <p className="text-muted-foreground mb-1 font-mono text-[10px] font-bold uppercase">
+            Slash Commands
+          </p>
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+            {SLASH_COMMANDS_HELP.map((item) => (
+              <button
+                key={item.command}
+                type="button"
+                onClick={() => onChange(`${item.command.split(' ')[0]} `)}
+                className="hover:bg-accent flex items-center justify-between gap-2 px-2 py-1 text-left font-mono text-xs"
+              >
+                <span className="font-bold text-[var(--unread)]">{item.command}</span>
+                <span className="text-muted-foreground truncate text-[11px]">
+                  {item.description}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Reply mode banner */}
+      {replyingTo && !editingMessage && (
+        <div className="flex items-center gap-2 border-t-2 border-[#090c12] bg-[#232a42] px-3 py-2 sm:px-4">
+          <div className="min-w-0 flex-1 border-l-2 border-[var(--unread)] pl-2">
+            <p className="font-sans text-[11px] font-semibold tracking-wider text-[var(--unread)] uppercase">
+              Replying to {replyingTo.senderName}
+            </p>
+            <p className="text-muted-foreground truncate font-sans text-xs">
+              {replyingTo.content || 'Attachment'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancelReply}
+            className="pixel-btn bg-card text-foreground inline-flex size-7 shrink-0 items-center justify-center"
+            aria-label="Cancel reply"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Edit mode banner */}
       {editingMessage && (
         <div className="flex items-center gap-2 border-t-2 border-[#090c12] bg-[#232a42] px-3 py-2 sm:px-4">
@@ -110,10 +170,17 @@ export function MessageInput({
 
         <input
           type="text"
-          placeholder={editingMessage ? 'Edit your message...' : 'Message...'}
+          placeholder={
+            editingMessage
+              ? 'Edit your message...'
+              : 'Message... (try /roll 2d6, /me, /flip, /shrug)'
+          }
           className="pixel-input placeholder:text-muted-foreground h-12 min-w-0 flex-1 rounded-none px-3.5 font-sans text-base outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            onTyping?.(e.target.value.trim().length > 0);
+          }}
           onKeyDown={handleKeyDown}
           disabled={disabled}
           aria-label="Message input"

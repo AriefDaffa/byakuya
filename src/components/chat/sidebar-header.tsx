@@ -3,14 +3,29 @@
 import { signOut } from '@/features/auth/actions';
 import { useChatListStore } from '@/store/chat-list-store';
 import { useChatStore } from '@/store/chat-store';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PixelAvatarEditor } from '@/components/chat/pixel-avatar-editor';
 import { PixelMenuIcon } from '@/components/ui/pixel-icons';
-import { LogOut, Moon, Paintbrush, Sun, User } from 'lucide-react';
+import { isSoundMuted, setSoundMuted } from '@/lib/sound';
+import {
+  Grid3X3,
+  LogOut,
+  Moon,
+  Paintbrush,
+  Sun,
+  User,
+  Users,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useSyncExternalStore } from 'react';
 
 interface SidebarHeaderProps {
   userName?: string;
+  userAvatarUrl?: string | null;
+  onAvatarUpdated?: (avatarUrl: string) => void;
+  onOpenCreateGroup?: () => void;
 }
 
 const emptySubscribe = () => () => {};
@@ -28,12 +43,20 @@ function useIsMounted() {
   );
 }
 
-export function SidebarHeader({ userName }: SidebarHeaderProps) {
+export function SidebarHeader({
+  userName,
+  userAvatarUrl,
+  onAvatarUpdated,
+  onOpenCreateGroup,
+}: SidebarHeaderProps) {
   const { theme, setTheme } = useTheme();
   const mounted = useIsMounted();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAvatarEditorOpen, setIsAvatarEditorOpen] = useState(false);
+  const [muted, setMuted] = useState(() => isSoundMuted());
   const toggleProfile = useChatStore((state) => state.toggleProfile);
   const selectedUser = useChatStore((state) => state.selectedUser);
+  const selectedConversation = useChatStore((state) => state.selectedConversation);
 
   const handleSignOut = () => {
     // Clear all user-scoped state before signing out so it can never leak
@@ -56,6 +79,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
       <div className="flex min-w-0 items-center gap-3">
         <div className="relative shrink-0">
           <Avatar className="size-12 border-2 border-[#090c12] shadow-[2px_2px_0_#07090e]">
+            <AvatarImage src={userAvatarUrl || ''} alt={displayName} />
             <AvatarFallback>{displayName}</AvatarFallback>
           </Avatar>
           <span
@@ -92,7 +116,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
               <button
                 type="button"
                 onClick={() => {
-                  if (selectedUser) {
+                  if (selectedUser || selectedConversation) {
                     toggleProfile();
                   }
                   setIsMenuOpen(false);
@@ -101,6 +125,50 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
               >
                 <User className="size-4" /> Profile
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAvatarEditorOpen(true);
+                  setIsMenuOpen(false);
+                }}
+                className="hover:bg-accent flex w-full items-center gap-2 rounded-none px-2 py-2 font-sans text-sm font-medium"
+              >
+                <Grid3X3 className="size-4" /> Pixel Avatar
+              </button>
+              {onOpenCreateGroup && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenCreateGroup();
+                    setIsMenuOpen(false);
+                  }}
+                  className="hover:bg-accent flex w-full items-center gap-2 rounded-none px-2 py-2 font-sans text-sm font-medium"
+                >
+                  <Users className="size-4" /> New Group
+                </button>
+              )}
+              {mounted && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextMuted = !muted;
+                    setMuted(nextMuted);
+                    setSoundMuted(nextMuted);
+                    setIsMenuOpen(false);
+                  }}
+                  className="hover:bg-accent flex w-full items-center gap-2 rounded-none px-2 py-2 font-sans text-sm font-medium"
+                >
+                  {muted ? (
+                    <>
+                      <VolumeX className="size-4" /> 8-Bit SFX: Off
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="size-4" /> 8-Bit SFX: On
+                    </>
+                  )}
+                </button>
+              )}
               {mounted && (
                 <button
                   type="button"
@@ -134,6 +202,14 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
           </>
         )}
       </div>
+
+      {isAvatarEditorOpen && (
+        <PixelAvatarEditor
+          initialAvatarUrl={userAvatarUrl}
+          onClose={() => setIsAvatarEditorOpen(false)}
+          onSaved={(newUrl) => onAvatarUpdated?.(newUrl)}
+        />
+      )}
     </div>
   );
 }

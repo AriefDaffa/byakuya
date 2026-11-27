@@ -142,3 +142,54 @@ export function PixelAvatarSvg({ name, className }: PixelAvatarProps) {
     </svg>
   );
 }
+
+/** 16-color 16-bit palette for custom user-painted 16x16 pixel avatars. */
+export const PIXEL_AVATAR_PALETTE = [
+  '#1d5b6e', // 0: Teal backdrop
+  '#0b0e14', // 1: Ink black
+  '#f8fafc', // 2: Pure white
+  '#94a3b8', // 3: Slate silver
+  '#f7cfa9', // 4: Light skin
+  '#c9894b', // 5: Warm tan
+  '#ef4444', // 6: Crimson red
+  '#f97316', // 7: Flame orange
+  '#eab308', // 8: Gold yellow
+  '#22c55e', // 9: Emerald green
+  '#06b6d4', // a: Cyan
+  '#3b82f6', // b: Cobalt blue
+  '#6366f1', // c: Indigo
+  '#a855f7', // d: Royal purple
+  '#ec4899', // e: Magenta pink
+  '#78350f', // f: Oak brown
+] as const;
+
+export function PixelCustomAvatarSvg({
+  pixelData,
+  className,
+}: {
+  pixelData: string;
+  className?: string;
+}) {
+  const grid = pixelData.startsWith('pixel:') ? pixelData.slice(6) : pixelData;
+
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      shapeRendering="crispEdges"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect width="16" height="16" fill={PIXEL_AVATAR_PALETTE[0]} />
+      {Array.from({ length: Math.min(grid.length, 256) }, (_, idx) => {
+        const ch = grid[idx];
+        const colorIndex = parseInt(ch, 16);
+        if (Number.isNaN(colorIndex) || colorIndex === 0) return null;
+        const fill = PIXEL_AVATAR_PALETTE[colorIndex];
+        if (!fill) return null;
+        const x = idx % 16;
+        const y = Math.floor(idx / 16);
+        return <rect key={idx} x={x} y={y} width="1" height="1" fill={fill} />;
+      })}
+    </svg>
+  );
+}

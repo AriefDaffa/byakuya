@@ -1,5 +1,6 @@
 'use client';
 
+import { Users } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { formatChatTimestamp } from '@/lib/format';
@@ -16,8 +17,15 @@ export function ChatListItemComponent({
   isActive,
   onClick,
 }: ChatListItemComponentProps) {
-  const { otherUser, lastMessage, unreadCount } = item;
-  const isOnline = otherUser?.status === 'online';
+  const { conversation, otherUser, members, lastMessage, unreadCount } = item;
+  const isGroup = conversation.type === 'group';
+  const displayName = isGroup
+    ? conversation.name || 'Group Room'
+    : otherUser?.name || 'Byakuya';
+  const displayAvatar = isGroup
+    ? conversation.avatar_url || ''
+    : otherUser?.avatar_url || '';
+  const isOnline = !isGroup && otherUser?.status === 'online';
 
   return (
     <button
@@ -28,7 +36,7 @@ export function ChatListItemComponent({
         isActive &&
           'bg-[#2c3766] shadow-[inset_0_2px_0_rgba(255,255,255,0.14)] dark:bg-[#2c3766]',
       )}
-      aria-label={`Chat with ${otherUser?.name}`}
+      aria-label={`Chat with ${displayName}`}
     >
       {isActive && (
         <span
@@ -39,8 +47,8 @@ export function ChatListItemComponent({
 
       <div className="relative shrink-0">
         <Avatar className="size-12 border-2 border-[#090c12] shadow-[2px_2px_0_#07090e]">
-          <AvatarImage src={otherUser?.avatar_url || ''} alt={otherUser?.name || ''} />
-          <AvatarFallback>{otherUser?.name || 'Byakuya'}</AvatarFallback>
+          <AvatarImage src={displayAvatar} alt={displayName} />
+          <AvatarFallback>{displayName}</AvatarFallback>
         </Avatar>
         {isOnline && (
           <span
@@ -48,12 +56,20 @@ export function ChatListItemComponent({
             aria-hidden="true"
           />
         )}
+        {isGroup && (
+          <span
+            className="absolute -right-0.5 -bottom-0.5 flex size-4 items-center justify-center border border-[#090c12] bg-[var(--unread)] text-[#090c12]"
+            aria-hidden="true"
+          >
+            <Users className="size-2.5" />
+          </span>
+        )}
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <h3 className="truncate font-sans text-base leading-tight font-bold">
-            {otherUser?.name}
+            {displayName}
           </h3>
           {lastMessage && (
             <span className="text-muted-foreground font-mono text-xs whitespace-nowrap tabular-nums">
@@ -65,7 +81,8 @@ export function ChatListItemComponent({
           <p className="text-muted-foreground truncate font-sans text-sm leading-snug">
             {lastMessage?.is_deleted
               ? 'Message deleted'
-              : lastMessage?.content || 'No messages yet'}
+              : lastMessage?.content ||
+                (isGroup ? `${members?.length ?? 0} members` : 'No messages yet')}
           </p>
           {unreadCount > 0 && (
             <span className="pixel-box ml-1 inline-flex h-6 min-w-6 shrink-0 items-center justify-center bg-[var(--unread)] px-1 font-mono text-xs font-bold text-[#090c12] tabular-nums">

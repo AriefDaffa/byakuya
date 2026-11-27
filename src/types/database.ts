@@ -49,9 +49,20 @@ export interface Message {
   type: 'text' | 'image' | 'file' | 'system' | null;
   is_edited: boolean | null;
   is_deleted: boolean | null;
+  is_pinned?: boolean | null;
+  pinned_at?: string | null;
+  pinned_by?: string | null;
   reply_to_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
 }
 
 export interface Attachment {

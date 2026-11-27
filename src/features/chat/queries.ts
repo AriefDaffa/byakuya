@@ -1,5 +1,10 @@
 import { query } from '@/lib/db/pool';
-import type { ChatListItem, MessageWithSender } from '@/types/chat';
+import type {
+  ChatListItem,
+  GroupMember,
+  MessageWithSender,
+  ReactionSummary,
+} from '@/types/chat';
 import type { Attachment, Conversation, Message, Profile } from '@/types/database';
 
 export interface MessageOwnershipRow {
@@ -16,6 +21,7 @@ interface ChatListRow {
   created_at: string;
   updated_at: string;
   other_user: Profile | null;
+  members: GroupMember[] | null;
   last_message: Message | null;
   unread_count: number | string | null;
 }
@@ -53,6 +59,38 @@ const ATTACHMENTS_JSON = `COALESCE((
   WHERE a.message_id = m.id
 ), '[]'::jsonb)`;
 
+const REACTIONS_JSON = `COALESCE((
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'emoji', r.emoji,
+      'userIds', r.user_ids
+    )
+    ORDER BY r.first_created_at, r.emoji
+  )
+  FROM (
+    SELECT
+      mr.emoji,
+      jsonb_agg(mr.user_id ORDER BY mr.created_at) AS user_ids,
+      MIN(mr.created_at) AS first_created_at
+    FROM public.message_reactions mr
+    WHERE mr.message_id = m.id
+    GROUP BY mr.emoji
+  ) r
+), '[]'::jsonb)`;
+
+const REPLY_TO_JSON = `(
+  SELECT jsonb_build_object(
+    'id', rm.id,
+    'senderId', rm.sender_id,
+    'senderName', ru.name,
+    'content', CASE WHEN rm.is_deleted THEN NULL ELSE rm.content END,
+    'isDeleted', COALESCE(rm.is_deleted, FALSE)
+  )
+  FROM public.messages rm
+  JOIN public.users ru ON ru.id = rm.sender_id
+  WHERE rm.id = m.reply_to_id
+)`;
+
 const MESSAGE_COLUMNS = `
   m.id,
   m.conversation_id,
@@ -61,11 +99,16 @@ const MESSAGE_COLUMNS = `
   m.type,
   m.is_edited,
   m.is_deleted,
+  m.is_pinned,
+  m.pinned_at,
+  m.pinned_by,
   m.reply_to_id,
   m.created_at,
   m.updated_at,
   ${PROFILE_JSON} AS sender,
-  ${ATTACHMENTS_JSON} AS attachments
+  ${ATTACHMENTS_JSON} AS attachments,
+  ${REACTIONS_JSON} AS reactions,
+  ${REPLY_TO_JSON} AS "replyTo"
 `;
 
 /**
@@ -154,6 +197,28 @@ export async function fetchChatList(userId: string): Promise<ChatListItem[]> {
          LIMIT 1
        ) AS other_user,
        (
+         SELECT COALESCE(
+           jsonb_agg(
+             jsonb_build_object(
+               'id', mu.id,
+               'name', mu.name,
+               'email', mu.email,
+               'avatar_url', mu.avatar_url,
+               'status', mu.status,
+               'last_seen', mu.last_seen,
+               'created_at', mu.created_at,
+               'updated_at', mu.updated_at,
+               'role', COALESCE(cm.role, 'member')
+             )
+             ORDER BY cm.joined_at, mu.name
+           ),
+           '[]'::jsonb
+         )
+         FROM public.conversation_members cm
+         JOIN public.users mu ON mu.id = cm.user_id
+         WHERE cm.conversation_id = c.id
+       ) AS members,
+       (
          SELECT to_jsonb(recent)
          FROM (
            SELECT
@@ -198,6 +263,7 @@ export async function fetchChatList(userId: string): Promise<ChatListItem[]> {
       updated_at: row.updated_at,
     },
     otherUser: row.other_user,
+    members: row.members ?? [],
     lastMessage: row.last_message,
     unreadCount: Number(row.unread_count ?? 0),
   }));
@@ -271,19 +337,39 @@ export async function insertMessage(params: {
   conversationId: string;
   senderId: string;
   content: string;
-  type: 'text' | 'image' | 'file';
+  type: 'text' | 'image' | 'file' | 'system';
+  replyToId?: string | null;
 }): Promise<MessageWithSender> {
-  const result = await query<MessageWithSender>(
-    `WITH m AS (
-       INSERT INTO public.messages (conversation_id, sender_id, content, type)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *
-     )
-     SELECT ${MESSAGE_COLUMNS}
-     FROM m
-     JOIN public.users u ON u.id = m.sender_id`,
-    [params.conversationId, params.senderId, params.content, params.type],
-  );
+  const hasReply = Boolean(params.replyToId);
+  const sql = hasReply
+    ? `WITH m AS (
+         INSERT INTO public.messages (conversation_id, sender_id, content, type, reply_to_id)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *
+       )
+       SELECT ${MESSAGE_COLUMNS}
+       FROM m
+       JOIN public.users u ON u.id = m.sender_id`
+    : `WITH m AS (
+         INSERT INTO public.messages (conversation_id, sender_id, content, type)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *
+       )
+       SELECT ${MESSAGE_COLUMNS}
+       FROM m
+       JOIN public.users u ON u.id = m.sender_id`;
+
+  const queryParams = hasReply
+    ? [
+        params.conversationId,
+        params.senderId,
+        params.content,
+        params.type,
+        params.replyToId,
+      ]
+    : [params.conversationId, params.senderId, params.content, params.type];
+
+  const result = await query<MessageWithSender>(sql, queryParams);
 
   const message = result.rows[0];
   if (!message) throw new Error('Failed to create message');
@@ -438,4 +524,219 @@ export async function searchMessagesByTerm(
   );
 
   return result.rows;
+}
+
+/** Toggle an emoji reaction on a message and return updated reaction summaries. */
+export async function toggleMessageReaction(params: {
+  messageId: string;
+  userId: string;
+  emoji: string;
+}): Promise<{ conversationId: string; reactions: ReactionSummary[] } | null> {
+  const msgResult = await query<{ conversation_id: string }>(
+    `SELECT conversation_id
+     FROM public.messages
+     WHERE id = $1 AND is_deleted = FALSE`,
+    [params.messageId],
+  );
+  const msgRow = msgResult.rows[0];
+  if (!msgRow) return null;
+
+  const existing = await query<{ id: string }>(
+    `SELECT id
+     FROM public.message_reactions
+     WHERE message_id = $1 AND user_id = $2 AND emoji = $3`,
+    [params.messageId, params.userId, params.emoji],
+  );
+
+  if (existing.rows[0]) {
+    await query(`DELETE FROM public.message_reactions WHERE id = $1`, [
+      existing.rows[0].id,
+    ]);
+  } else {
+    await query(
+      `INSERT INTO public.message_reactions (message_id, user_id, emoji)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (message_id, user_id, emoji) DO NOTHING`,
+      [params.messageId, params.userId, params.emoji],
+    );
+  }
+
+  const reactionsResult = await query<{ emoji: string; user_ids: string[] }>(
+    `SELECT
+       emoji,
+       jsonb_agg(user_id ORDER BY created_at) AS user_ids
+     FROM public.message_reactions
+     WHERE message_id = $1
+     GROUP BY emoji
+     ORDER BY MIN(created_at), emoji`,
+    [params.messageId],
+  );
+
+  return {
+    conversationId: msgRow.conversation_id,
+    reactions: reactionsResult.rows.map((r) => ({
+      emoji: r.emoji,
+      userIds: r.user_ids ?? [],
+    })),
+  };
+}
+
+/** Toggle pin status on a message. */
+export async function toggleMessagePin(params: {
+  messageId: string;
+  userId: string;
+}): Promise<{
+  conversationId: string;
+  isPinned: boolean;
+  pinnedAt: string | null;
+  pinnedBy: string | null;
+} | null> {
+  const result = await query<{
+    conversation_id: string;
+    is_pinned: boolean;
+    pinned_at: string | null;
+    pinned_by: string | null;
+  }>(
+    `UPDATE public.messages
+     SET
+       is_pinned = NOT is_pinned,
+       pinned_at = CASE WHEN NOT is_pinned THEN NOW() ELSE NULL END,
+       pinned_by = CASE WHEN NOT is_pinned THEN $2 ELSE NULL END
+     WHERE id = $1 AND is_deleted = FALSE
+     RETURNING conversation_id, is_pinned, pinned_at, pinned_by`,
+    [params.messageId, params.userId],
+  );
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  return {
+    conversationId: row.conversation_id,
+    isPinned: row.is_pinned,
+    pinnedAt: row.pinned_at,
+    pinnedBy: row.pinned_by,
+  };
+}
+
+/** Fetch pinned messages for a conversation, newest pinned first. */
+export async function fetchPinnedMessages(
+  conversationId: string,
+): Promise<MessageWithSender[]> {
+  const result = await query<MessageWithSender>(
+    `SELECT ${MESSAGE_COLUMNS}
+     FROM public.messages m
+     JOIN public.users u ON u.id = m.sender_id
+     WHERE m.conversation_id = $1
+       AND m.is_deleted = FALSE
+       AND m.is_pinned = TRUE
+     ORDER BY m.pinned_at DESC, m.created_at DESC
+     LIMIT 30`,
+    [conversationId],
+  );
+
+  return result.rows;
+}
+
+/** Search visible messages inside a single conversation. */
+export async function searchConversationMessagesQuery(
+  conversationId: string,
+  pattern: string,
+): Promise<MessageWithSender[]> {
+  const result = await query<MessageWithSender>(
+    `SELECT ${MESSAGE_COLUMNS}
+     FROM public.messages m
+     JOIN public.users u ON u.id = m.sender_id
+     WHERE m.conversation_id = $1
+       AND m.is_deleted = FALSE
+       AND m.content ILIKE $2
+     ORDER BY m.created_at DESC, m.id DESC
+     LIMIT 30`,
+    [conversationId, pattern],
+  );
+
+  return result.rows;
+}
+
+/** Create a group conversation and add creator as admin + members. */
+export async function createGroupConversationQuery(params: {
+  creatorId: string;
+  name: string;
+  memberIds: string[];
+}): Promise<string> {
+  const convResult = await query<{ id: string }>(
+    `INSERT INTO public.conversations (type, name)
+     VALUES ('group', $1)
+     RETURNING id`,
+    [params.name],
+  );
+  const conversationId = convResult.rows[0]?.id;
+  if (!conversationId) throw new Error('Failed to create group conversation');
+
+  const uniqueMemberIds = Array.from(
+    new Set(params.memberIds.filter((id) => id !== params.creatorId)),
+  );
+
+  await query(
+    `INSERT INTO public.conversation_members (conversation_id, user_id, role)
+     VALUES ($1, $2, 'admin')
+     ON CONFLICT (conversation_id, user_id) DO NOTHING`,
+    [conversationId, params.creatorId],
+  );
+
+  for (const memberId of uniqueMemberIds) {
+    await query(
+      `INSERT INTO public.conversation_members (conversation_id, user_id, role)
+       VALUES ($1, $2, 'member')
+       ON CONFLICT (conversation_id, user_id) DO NOTHING`,
+      [conversationId, memberId],
+    );
+  }
+
+  return conversationId;
+}
+
+/** Check if a user is an admin of a group conversation. */
+export async function isConversationAdmin(
+  conversationId: string,
+  userId: string,
+): Promise<boolean> {
+  const result = await query<{ is_admin: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM public.conversation_members cm
+       JOIN public.conversations c ON c.id = cm.conversation_id
+       WHERE cm.conversation_id = $1
+         AND cm.user_id = $2
+         AND cm.role = 'admin'
+         AND c.type = 'group'
+     ) AS is_admin`,
+    [conversationId, userId],
+  );
+
+  return Boolean(result.rows[0]?.is_admin);
+}
+
+/** Add a member to a group conversation. */
+export async function addGroupMemberQuery(
+  conversationId: string,
+  userId: string,
+): Promise<void> {
+  await query(
+    `INSERT INTO public.conversation_members (conversation_id, user_id, role)
+     VALUES ($1, $2, 'member')
+     ON CONFLICT (conversation_id, user_id) DO NOTHING`,
+    [conversationId, userId],
+  );
+}
+
+/** Remove a member from a group conversation. */
+export async function removeGroupMemberQuery(
+  conversationId: string,
+  userId: string,
+): Promise<void> {
+  await query(
+    `DELETE FROM public.conversation_members
+     WHERE conversation_id = $1 AND user_id = $2`,
+    [conversationId, userId],
+  );
 }

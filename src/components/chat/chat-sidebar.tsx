@@ -7,6 +7,7 @@ import { useChatSearch } from '@/hooks/use-chat-search';
 import { useChatListStore } from '@/store/chat-list-store';
 import { useChatStore } from '@/store/chat-store';
 import { ChatListItemComponent } from '@/components/chat/chat-list-item';
+import { CreateGroupDialog } from '@/components/chat/create-group-dialog';
 import { SidebarHeader } from '@/components/chat/sidebar-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loader } from '@/components/ui/loader';
@@ -15,21 +16,25 @@ import { PixelSearchIcon } from '@/components/ui/pixel-icons';
 import { getOrCreateConversation } from '@/features/chat/actions';
 import { getMe } from '@/features/auth/actions';
 import { useCallback, useEffect, useState } from 'react';
+import type { ChatListItem } from '@/types/chat';
 import type { Profile } from '@/types/database';
 
 export function ChatSidebar() {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
   const { data, isLoading, refetch } = useChatList();
   const { onSearch, results, isLoading: isSearching } = useChatSearch();
   const searchKeyword = useChatListStore((state) => state.searchKeyword);
   const setSearchKeyword = useChatListStore((state) => state.setSearchKeyword);
   const setSelectedUser = useChatStore((state) => state.setSelectedUser);
-  const selectedUser = useChatStore((state) => state.selectedUser);
+  const setSelectedConversation = useChatStore((state) => state.setSelectedConversation);
+  const conversationId = useChatStore((state) => state.conversationId);
   const setConversationId = useChatStore((state) => state.setConversationId);
   const toggleChatSlider = useChatStore((state) => state.toggleChatSlider);
   const setMessageInput = useChatStore((state) => state.setMessageInput);
   const setEditingMessage = useChatStore((state) => state.setEditingMessage);
+  const setReplyingTo = useChatStore((state) => state.setReplyingTo);
 
   // Get current user profile
   useEffect(() => {
@@ -51,12 +56,14 @@ export function ChatSidebar() {
   }, []);
 
   const openChat = useCallback(
-    (conversationId: string, user: Profile) => {
+    (nextConversationId: string, user: Profile | null, item: ChatListItem | null = null) => {
       setSelectedUser(user);
-      setConversationId(conversationId);
-      // Never carry a draft or an active edit across conversations.
+      setSelectedConversation(item);
+      setConversationId(nextConversationId);
+      // Never carry a draft, reply, or active edit across conversations.
       setMessageInput('');
       setEditingMessage(null);
+      setReplyingTo(null);
       setSearchKeyword('');
       onSearch('');
 
@@ -69,7 +76,9 @@ export function ChatSidebar() {
       setConversationId,
       setEditingMessage,
       setMessageInput,
+      setReplyingTo,
       setSearchKeyword,
+      setSelectedConversation,
       setSelectedUser,
       toggleChatSlider,
     ],
@@ -77,8 +86,6 @@ export function ChatSidebar() {
 
   const handleSelectUser = useCallback(
     async (user: Profile) => {
-      // Resolve the conversation *before* selecting it: opening a chat with a
-      // null conversation ID would leave the UI in a broken state.
       const result = await getOrCreateConversation(user.id);
 
       if ('error' in result && result.error) {
@@ -91,24 +98,22 @@ export function ChatSidebar() {
         return;
       }
 
-      openChat(result.conversationId, user);
+      openChat(result.conversationId, user, null);
       void refetch();
     },
     [openChat, refetch],
   );
 
   const handleSelectSearchMessage = useCallback(
-    (conversationId: string) => {
-      // Open the conversation the message belongs to. `msg.sender` is who wrote
-      // the message, which is not necessarily the person we are chatting with.
-      const item = data.find((entry) => entry.conversation.id === conversationId);
+    (targetConversationId: string) => {
+      const item = data.find((entry) => entry.conversation.id === targetConversationId);
 
-      if (!item?.otherUser) {
+      if (!item) {
         toast.error('Unable to open that conversation');
         return;
       }
 
-      openChat(conversationId, item.otherUser);
+      openChat(targetConversationId, item.otherUser, item);
     },
     [data, openChat],
   );
@@ -116,7 +121,14 @@ export function ChatSidebar() {
   return (
     <div className="bg-sidebar relative flex size-full min-h-0 flex-col border-r-2 border-[var(--pixel-frame)]">
       <div className="space-y-3 border-b-2 border-[#090c12] px-4 py-3.5">
-        <SidebarHeader userName={currentUser?.name} />
+        <SidebarHeader
+          userName={currentUser?.name}
+          userAvatarUrl={currentUser?.avatar_url}
+          onAvatarUpdated={(newUrl) =>
+            setCurrentUser((prev) => (prev ? { ...prev, avatar_url: newUrl } : prev))
+          }
+          onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
+        />
         <div className="relative w-full">
           <PixelSearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-[18px] -translate-y-1/2" />
           <input
@@ -229,17 +241,23 @@ export function ChatSidebar() {
                 <ChatListItemComponent
                   key={item.conversation.id}
                   item={item}
-                  isActive={Boolean(
-                    selectedUser?.id && item.otherUser?.id === selectedUser.id,
-                  )}
-                  onClick={() =>
-                    item.otherUser && openChat(item.conversation.id, item.otherUser)
-                  }
+                  isActive={conversationId === item.conversation.id}
+                  onClick={() => openChat(item.conversation.id, item.otherUser, item)}
                 />
               ))}
             </div>
           )}
         </>
+      )}
+
+      {isCreateGroupOpen && (
+        <CreateGroupDialog
+          onClose={() => setIsCreateGroupOpen(false)}
+          onCreated={(newConversationId) => {
+            setConversationId(newConversationId);
+            void refetch();
+          }}
+        />
       )}
     </div>
   );

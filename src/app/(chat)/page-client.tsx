@@ -14,6 +14,7 @@ export function ChatPageClient() {
   const [userId, setUserId] = useState<string | null>(null);
 
   const selectedUser = useChatStore((state) => state.selectedUser);
+  const selectedConversation = useChatStore((state) => state.selectedConversation);
   const isChatSliderOpen = useChatStore((state) => state.isChatSliderOpen);
   const toggleChatSlider = useChatStore((state) => state.toggleChatSlider);
   const isProfileOpen = useChatStore((state) => state.isProfileOpen);
@@ -45,14 +46,33 @@ export function ChatPageClient() {
       />
 
       {/* Profile sheet */}
-      <SheetOverlay isOpen={isProfileOpen} onClose={toggleProfile} title="Profile">
-        {selectedUser && (
+      <SheetOverlay
+        isOpen={isProfileOpen}
+        onClose={toggleProfile}
+        title={
+          selectedConversation?.conversation.type === 'group'
+            ? 'Group Room'
+            : 'Profile'
+        }
+      >
+        {selectedConversation?.conversation.type === 'group' ? (
           <ReceiverProfile
-            avatar={selectedUser.avatar_url || ''}
-            email={selectedUser.email}
-            name={selectedUser.name}
-            status={selectedUser.status}
+            isGroup
+            conversationId={selectedConversation.conversation.id}
+            avatar={selectedConversation.conversation.avatar_url || ''}
+            name={selectedConversation.conversation.name || 'Group Room'}
+            members={selectedConversation.members}
+            currentUserId={userId}
           />
+        ) : (
+          selectedUser && (
+            <ReceiverProfile
+              avatar={selectedUser.avatar_url || ''}
+              email={selectedUser.email}
+              name={selectedUser.name}
+              status={selectedUser.status}
+            />
+          )
         )}
       </SheetOverlay>
     </>

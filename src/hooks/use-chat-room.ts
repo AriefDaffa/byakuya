@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useChatStore } from '@/store/chat-store';
-import { useRealtimeMessages } from '@/hooks/use-realtime';
+import { useRealtimeMessages, useTypingIndicator } from '@/hooks/use-realtime';
+import { playReactionSfx, playReceiveSfx, playSendSfx } from '@/lib/sound';
 import { getMe } from '@/features/auth/actions';
 import {
   getMessages,
@@ -12,9 +13,11 @@ import {
   editMessage as editMessageAction,
   deleteMessage as deleteMessageAction,
   markAsRead,
+  togglePinMessage as togglePinMessageAction,
+  toggleReaction as toggleReactionAction,
 } from '@/features/chat/actions';
 import type { Profile } from '@/types/database';
-import type { MessageWithSender, MessageGroup } from '@/types/chat';
+import type { MessageWithSender, MessageGroup, ReactionSummary } from '@/types/chat';
 
 const EMPTY_MESSAGES: MessageWithSender[] = [];
 
@@ -46,11 +49,15 @@ export function useChatRoom() {
     setMessageInput,
     page,
     setEditingMessage,
+    replyingTo,
+    setReplyingTo,
     messages,
     setMessages,
     hasMore,
     setHasMore,
   } = useChatStore();
+
+  const { typingUsers, sendTyping } = useTypingIndicator(conversationId, currentUserId);
 
   // Get current user ID
   useEffect(() => {
@@ -172,11 +179,15 @@ export function useChatRoom() {
     (message: MessageWithSender) => {
       mergeMessage(message);
 
+      if (message.sender_id !== currentUserId) {
+        playReceiveSfx();
+      }
+
       if (conversationId) {
         void markAsRead(conversationId);
       }
     },
-    [conversationId, mergeMessage],
+    [conversationId, currentUserId, mergeMessage],
   );
 
   const handleMessageUpdate = useCallback(
@@ -193,11 +204,42 @@ export function useChatRoom() {
     [setMessages],
   );
 
+  const handleReactionToggle = useCallback(
+    (messageId: string, reactions: ReactionSummary[]) => {
+      setMessages((previous) =>
+        previous.map((item) =>
+          item.id === messageId ? { ...item, reactions } : item,
+        ),
+      );
+    },
+    [setMessages],
+  );
+
+  const handleMessagePin = useCallback(
+    (
+      messageId: string,
+      isPinned: boolean,
+      pinnedAt: string | null,
+      pinnedBy: string | null,
+    ) => {
+      setMessages((previous) =>
+        previous.map((item) =>
+          item.id === messageId
+            ? { ...item, is_pinned: isPinned, pinned_at: pinnedAt, pinned_by: pinnedBy }
+            : item,
+        ),
+      );
+    },
+    [setMessages],
+  );
+
   useRealtimeMessages({
     conversationId,
     onNewMessage: handleNewMessage,
     onMessageUpdate: handleMessageUpdate,
     onMessageDelete: handleMessageDelete,
+    onReactionToggle: handleReactionToggle,
+    onMessagePin: handleMessagePin,
   });
 
   // Send message
@@ -207,7 +249,11 @@ export function useChatRoom() {
     const content = messageInput.trim();
     if (!content) return;
 
+    const currentReply = replyingTo;
     setMessageInput('');
+    setReplyingTo(null);
+    sendTyping(false);
+    playSendSfx();
 
     // Optimistic update
     const optimisticMsg: MessageWithSender = {
@@ -218,7 +264,8 @@ export function useChatRoom() {
       type: 'text',
       is_edited: false,
       is_deleted: false,
-      reply_to_id: null,
+      reply_to_id: currentReply?.id ?? null,
+      replyTo: currentReply,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       sender: createPlaceholderSender(currentUserId),
@@ -226,13 +273,18 @@ export function useChatRoom() {
 
     setMessages((previous) => [...previous, optimisticMsg]);
 
-    const result = await sendMessageAction(conversationId, content);
+    const result = await sendMessageAction(
+      conversationId,
+      content,
+      currentReply?.id ?? null,
+    );
 
     if (result.error) {
       setMessages((previous) =>
         previous.filter((message) => message.id !== optimisticMsg.id),
       );
       setMessageInput(content);
+      setReplyingTo(currentReply);
       toast.error(result.error);
       return;
     }
@@ -246,7 +298,16 @@ export function useChatRoom() {
         return [...withoutOptimistic, saved];
       });
     }
-  }, [conversationId, messageInput, currentUserId, setMessageInput, setMessages]);
+  }, [
+    conversationId,
+    messageInput,
+    currentUserId,
+    replyingTo,
+    setMessageInput,
+    setReplyingTo,
+    setMessages,
+    sendTyping,
+  ]);
 
   // Send attachment
   const sendAttachment = useCallback(
@@ -374,6 +435,49 @@ export function useChatRoom() {
     [setMessages],
   );
 
+  // Toggle emoji reaction
+  const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
+    playReactionSfx();
+    const result = await toggleReactionAction(messageId, emoji);
+    if (result.error) {
+      toast.error(result.error);
+      return false;
+    }
+    if (result.data) {
+      setMessages((previous) =>
+        previous.map((item) =>
+          item.id === messageId ? { ...item, reactions: result.data } : item,
+        ),
+      );
+    }
+    return true;
+  }, [setMessages]);
+
+  // Toggle message pin
+  const togglePin = useCallback(async (messageId: string) => {
+    const result = await togglePinMessageAction(messageId);
+    if (result.error) {
+      toast.error(result.error);
+      return false;
+    }
+    if (result.data) {
+      setMessages((previous) =>
+        previous.map((item) =>
+          item.id === messageId
+            ? {
+                ...item,
+                is_pinned: result.data.isPinned,
+                pinned_at: result.data.pinnedAt,
+                pinned_by: result.data.pinnedBy,
+              }
+            : item,
+        ),
+      );
+      toast.success(result.data.isPinned ? 'Message pinned' : 'Message unpinned');
+    }
+    return true;
+  }, [setMessages]);
+
   // Revoke any remaining optimistic preview URLs on unmount.
   useEffect(() => {
     const previewUrls = previewUrlsRef.current;
@@ -441,10 +545,14 @@ export function useChatRoom() {
       currentPage,
       hasMore,
       currentUserId,
+      typingUsers,
+      sendTyping,
       sendMessage,
       sendAttachment,
       editMessage,
       deleteMessage,
+      toggleReaction,
+      togglePin,
     }),
     [
       visibleMessages,
@@ -455,10 +563,14 @@ export function useChatRoom() {
       currentPage,
       hasMore,
       currentUserId,
+      typingUsers,
+      sendTyping,
       sendMessage,
       sendAttachment,
       editMessage,
       deleteMessage,
+      toggleReaction,
+      togglePin,
     ],
   );
 }

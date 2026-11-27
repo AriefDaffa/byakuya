@@ -57,6 +57,9 @@ CREATE TABLE IF NOT EXISTS public.messages (
   type TEXT DEFAULT 'text' CHECK (type IN ('text', 'image', 'file', 'system')),
   is_edited BOOLEAN DEFAULT FALSE,
   is_deleted BOOLEAN DEFAULT FALSE,
+  is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+  pinned_at TIMESTAMPTZ,
+  pinned_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
   reply_to_id UUID REFERENCES public.messages(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
@@ -65,8 +68,22 @@ CREATE TABLE IF NOT EXISTS public.messages (
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON public.messages (conversation_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_sender ON public.messages (sender_id);
 CREATE INDEX IF NOT EXISTS idx_messages_content_trgm ON public.messages USING GIN (content gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_messages_pinned ON public.messages (conversation_id, pinned_at DESC) WHERE is_pinned = TRUE;
 
--- 5. ATTACHMENTS TABLE
+-- 5. MESSAGE REACTIONS TABLE
+CREATE TABLE IF NOT EXISTS public.message_reactions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  message_id UUID NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE (message_id, user_id, emoji)
+);
+
+CREATE INDEX IF NOT EXISTS idx_message_reactions_message ON public.message_reactions (message_id);
+CREATE INDEX IF NOT EXISTS idx_message_reactions_user ON public.message_reactions (user_id);
+
+-- 6. ATTACHMENTS TABLE
 CREATE TABLE IF NOT EXISTS public.attachments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   message_id UUID NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,

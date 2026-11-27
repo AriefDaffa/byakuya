@@ -3,7 +3,7 @@
 import * as React from 'react';
 import * as AvatarPrimitive from '@radix-ui/react-avatar';
 import { cn } from '@/lib/utils';
-import { PixelAvatarSvg } from '@/components/ui/pixel-avatar';
+import { PixelAvatarSvg, PixelCustomAvatarSvg } from '@/components/ui/pixel-avatar';
 
 function Avatar({
   className,
@@ -23,11 +23,24 @@ function Avatar({
 
 function AvatarImage({
   className,
+  src,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+  if (typeof src === 'string' && src.startsWith('pixel:')) {
+    return (
+      <span
+        data-slot="avatar-image"
+        className={cn('aspect-square size-full overflow-hidden', className)}
+      >
+        <PixelCustomAvatarSvg pixelData={src} className="size-full" />
+      </span>
+    );
+  }
+
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
+      src={src}
       className={cn('aspect-square size-full object-cover', className)}
       {...props}
     />

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import type { MessageWithSender } from '@/types/chat';
+import type { MessageWithSender, ReactionSummary } from '@/types/chat';
 
 /**
  * Server-side realtime event bus.
@@ -34,6 +34,27 @@ export type RealtimeEvent =
   | {
       type: 'presence:sync';
       onlineUserIds: string[];
+    }
+  | {
+      type: 'reaction:toggle';
+      conversationId: string;
+      messageId: string;
+      reactions: ReactionSummary[];
+    }
+  | {
+      type: 'message:pin';
+      conversationId: string;
+      messageId: string;
+      isPinned: boolean;
+      pinnedAt: string | null;
+      pinnedBy: string | null;
+    }
+  | {
+      type: 'typing:update';
+      conversationId: string;
+      userId: string;
+      userName: string;
+      isTyping: boolean;
     };
 
 export type RealtimeListener = (event: RealtimeEvent) => void;

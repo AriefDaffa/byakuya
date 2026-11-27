@@ -118,6 +118,29 @@ export function firstZodError(error: z.ZodError): string {
   return error.issues[0]?.message ?? 'Invalid input';
 }
 
+export const PIXEL_EMOTE_OPTIONS = ['⚔️', '❤️', '🔥', '😂', '👍', '✨', '💀', '🎉'] as const;
+
+export const reactionEmojiSchema = z
+  .string()
+  .trim()
+  .min(1, 'Reaction cannot be empty')
+  .max(16, 'Invalid reaction');
+
+export const groupNameSchema = z
+  .string()
+  .trim()
+  .min(2, 'Group name must be at least 2 characters')
+  .max(50, 'Group name cannot exceed 50 characters');
+
+export const groupMemberIdsSchema = z
+  .array(uuidSchema)
+  .min(1, 'Select at least one member')
+  .max(50, 'Group cannot exceed 50 members');
+
+export const pixelAvatarSchema = z
+  .string()
+  .regex(/^pixel:[0-9a-z]{256}$/, 'Invalid 16x16 pixel avatar format');
+
 /**
  * Normalize user-provided search terms. Commas and parentheses are stripped so
  * a single term can never be reinterpreted as query syntax, and whitespace is

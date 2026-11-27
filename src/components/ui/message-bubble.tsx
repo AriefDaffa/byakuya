@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { Pencil, Trash2, X } from 'lucide-react';
+import { Pencil, Pin, Reply, SmilePlus, Trash2, X } from 'lucide-react';
 import { PixelDownloadIcon, PixelFileIcon } from '@/components/ui/pixel-icons';
+import { PIXEL_EMOTE_OPTIONS } from '@/features/chat/schemas';
 import { formatChatTimestamp } from '@/lib/format';
 import type { MessageWithSender } from '@/types/chat';
 import type { Attachment } from '@/types/database';
@@ -12,9 +13,15 @@ import type { Attachment } from '@/types/database';
 interface MessageBubbleProps {
   message: MessageWithSender;
   variant: 'sent' | 'received';
+  currentUserId?: string;
+  showSenderName?: boolean;
+  isHighlighted?: boolean;
   className?: string;
   onEdit?: (messageId: string, content: string) => void;
   onDelete?: (messageId: string) => void;
+  onReply?: (message: MessageWithSender) => void;
+  onReact?: (messageId: string, emoji: string) => void;
+  onPin?: (messageId: string) => void;
 }
 
 const ALLOWED_ATTACHMENT_PROTOCOLS = new Set(['https:', 'http:', 'blob:']);
@@ -224,18 +231,48 @@ function BubbleMeta({ message }: { message: MessageWithSender }) {
 export function MessageBubble({
   message,
   variant,
+  currentUserId,
+  showSenderName = false,
+  isHighlighted = false,
   className,
   onEdit,
   onDelete,
+  onReply,
+  onReact,
+  onPin,
 }: MessageBubbleProps) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const isSent = variant === 'sent';
   const closeLightbox = useCallback(() => setLightboxSrc(null), []);
+
+  // System / slash-command action messages
+  if (message.type === 'system' && !message.is_deleted) {
+    return (
+      <div
+        id={`msg-${message.id}`}
+        className={cn(
+          'my-1 flex w-full justify-center',
+          isHighlighted && 'ring-2 ring-[var(--unread)]',
+        )}
+      >
+        <div className="pixel-box bg-card/90 text-foreground max-w-[85%] px-3 py-1.5 text-center font-mono text-xs">
+          <span>{message.content}</span>
+          <span className="ml-2 opacity-60">
+            {formatChatTimestamp(message.created_at)}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   // Deleted message
   if (message.is_deleted) {
     return (
-      <div className={cn('flex w-full', isSent ? 'justify-end' : 'justify-start')}>
+      <div
+        id={`msg-${message.id}`}
+        className={cn('flex w-full', isSent ? 'justify-end' : 'justify-start')}
+      >
         <div
           data-variant={variant}
           className={cn(
@@ -256,6 +293,8 @@ export function MessageBubble({
   const attachments = message.attachments ?? [];
   const hasAttachments = attachments.length > 0;
   const canManage = isSent && Boolean(onEdit || onDelete);
+  const hasActions = canManage || Boolean(onReply || onReact || onPin);
+  const reactions = message.reactions ?? [];
   // Attachments already show the filename, so avoid repeating it as body text.
   const isDuplicateAttachmentName =
     hasAttachments &&
@@ -268,84 +307,200 @@ export function MessageBubble({
         <ImageLightbox src={lightboxSrc} alt="Image preview" onClose={closeLightbox} />
       )}
       <div
+        id={`msg-${message.id}`}
         className={cn(
-          'group flex w-full items-end gap-2',
-          isSent ? 'justify-end' : 'justify-start',
+          'group flex w-full flex-col gap-1',
+          isSent ? 'items-end' : 'items-start',
         )}
       >
-        {/* Action menu (only for own messages). Kept outside the bubble so short
-            messages keep their natural width. Hidden at rest so the feed stays
-            clean; revealed on hover or keyboard focus. */}
-        {canManage && (
-          <div
-            className={cn(
-              'flex shrink-0 items-center gap-0.5 transition-opacity duration-150',
-              'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100',
-              'group-focus-within:pointer-events-auto group-focus-within:opacity-100',
-            )}
-          >
-            {onEdit && message.type === 'text' && (
-              <button
-                type="button"
-                onClick={() => onEdit(message.id, message.content || '')}
-                className="pixel-btn bg-card inline-flex size-8 shrink-0 items-center justify-center rounded-none"
-                title="Edit message"
-                aria-label="Edit message"
-              >
-                <Pencil className="size-3.5" />
-              </button>
-            )}
-            {onDelete && (
-              <button
-                type="button"
-                onClick={() => onDelete(message.id)}
-                className="pixel-btn bg-card text-destructive inline-flex size-8 shrink-0 items-center justify-center rounded-none"
-                title="Delete message"
-                aria-label="Delete message"
-              >
-                <Trash2 className="size-3.5" />
-              </button>
-            )}
-          </div>
-        )}
-
         <div
-          data-variant={variant}
           className={cn(
-            'w-fit max-w-[78%] min-w-0 rounded-none px-4 py-3 sm:max-w-[68%]',
-            isSent ? 'pixel-bubble-sent' : 'pixel-bubble-received',
-            className,
+            'flex w-full items-end gap-2',
+            isSent ? 'flex-row justify-end' : 'flex-row-reverse justify-end',
           )}
         >
-          <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
-            {/* Attachments */}
-            {hasAttachments && (
-              <div className="flex w-full flex-col gap-2">
-                {attachments.map((attachment) =>
-                  attachment.file_type.startsWith('image/') ? (
-                    <ImageAttachmentCard
-                      key={attachment.id}
-                      attachment={attachment}
-                      onPreview={setLightboxSrc}
-                    />
-                  ) : (
-                    <AttachmentCard key={attachment.id} attachment={attachment} />
-                  ),
-                )}
-              </div>
-            )}
+          {/* Action menu. Kept outside the bubble so short messages keep their natural width. */}
+          {hasActions && (
+            <div
+              className={cn(
+                'relative flex shrink-0 items-center gap-0.5 transition-opacity duration-150',
+                pickerOpen
+                  ? 'pointer-events-auto opacity-100'
+                  : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100',
+              )}
+            >
+              {onReact && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen((prev) => !prev)}
+                    className="pixel-btn bg-card inline-flex size-8 shrink-0 items-center justify-center rounded-none"
+                    title="React"
+                    aria-label="Add reaction"
+                  >
+                    <SmilePlus className="size-3.5" />
+                  </button>
+                  {pickerOpen && (
+                    <div className="pixel-panel bg-popover absolute bottom-9 left-0 z-30 flex items-center gap-1 p-1">
+                      {PIXEL_EMOTE_OPTIONS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => {
+                            onReact(message.id, emoji);
+                            setPickerOpen(false);
+                          }}
+                          className="hover:bg-accent inline-flex size-7 items-center justify-center text-sm"
+                          aria-label={`React with ${emoji}`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {onReply && (
+                <button
+                  type="button"
+                  onClick={() => onReply(message)}
+                  className="pixel-btn bg-card inline-flex size-8 shrink-0 items-center justify-center rounded-none"
+                  title="Reply"
+                  aria-label="Reply to message"
+                >
+                  <Reply className="size-3.5" />
+                </button>
+              )}
+              {onPin && (
+                <button
+                  type="button"
+                  onClick={() => onPin(message.id)}
+                  className={cn(
+                    'pixel-btn bg-card inline-flex size-8 shrink-0 items-center justify-center rounded-none',
+                    message.is_pinned && 'text-[var(--unread)]',
+                  )}
+                  title={message.is_pinned ? 'Unpin message' : 'Pin message'}
+                  aria-label={message.is_pinned ? 'Unpin message' : 'Pin message'}
+                >
+                  <Pin className="size-3.5" />
+                </button>
+              )}
+              {canManage && onEdit && message.type === 'text' && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(message.id, message.content || '')}
+                  className="pixel-btn bg-card inline-flex size-8 shrink-0 items-center justify-center rounded-none"
+                  title="Edit message"
+                  aria-label="Edit message"
+                >
+                  <Pencil className="size-3.5" />
+                </button>
+              )}
+              {canManage && onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(message.id)}
+                  className="pixel-btn bg-card text-destructive inline-flex size-8 shrink-0 items-center justify-center rounded-none"
+                  title="Delete message"
+                  aria-label="Delete message"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              )}
+            </div>
+          )}
 
-            {/* Text content */}
-            {showTextContent && (
-              <p className="max-w-full font-sans text-[17px] leading-snug font-medium break-words whitespace-pre-wrap sm:text-[18px]">
-                {message.content}
+          <div
+            data-variant={variant}
+            className={cn(
+              'w-fit max-w-[78%] min-w-0 rounded-none px-4 py-3 sm:max-w-[68%]',
+              isSent ? 'pixel-bubble-sent' : 'pixel-bubble-received',
+              isHighlighted && 'ring-2 ring-[var(--unread)]',
+              className,
+            )}
+          >
+            {showSenderName && !isSent && message.sender?.name && (
+              <p className="mb-1 font-mono text-[11px] font-bold text-[var(--unread)]">
+                {message.sender.name}
               </p>
             )}
 
-            {/* Edited flag + timestamp, bottom-right inside the bubble */}
-            <BubbleMeta message={message} />
+            {message.is_pinned && (
+              <div className="mb-1 flex items-center gap-1 font-mono text-[10px] font-bold uppercase opacity-80">
+                <Pin className="size-3" /> Pinned
+              </div>
+            )}
+
+            {message.replyTo && (
+              <div className="mb-2 border-l-2 border-[var(--unread)] bg-black/20 px-2.5 py-1 text-xs">
+                <p className="font-mono text-[10px] font-bold text-[var(--unread)]">
+                  {message.replyTo.senderName}
+                </p>
+                <p className="truncate opacity-85">
+                  {message.replyTo.isDeleted
+                    ? 'Message deleted'
+                    : message.replyTo.content || 'Attachment'}
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+              {/* Attachments */}
+              {hasAttachments && (
+                <div className="flex w-full flex-col gap-2">
+                  {attachments.map((attachment) =>
+                    attachment.file_type.startsWith('image/') ? (
+                      <ImageAttachmentCard
+                        key={attachment.id}
+                        attachment={attachment}
+                        onPreview={setLightboxSrc}
+                      />
+                    ) : (
+                      <AttachmentCard key={attachment.id} attachment={attachment} />
+                    ),
+                  )}
+                </div>
+              )}
+
+              {/* Text content */}
+              {showTextContent && (
+                <p className="max-w-full font-sans text-[17px] leading-snug font-medium break-words whitespace-pre-wrap sm:text-[18px]">
+                  {message.content}
+                </p>
+              )}
+
+              {/* Edited flag + timestamp, bottom-right inside the bubble */}
+              <BubbleMeta message={message} />
+            </div>
           </div>
         </div>
+
+        {/* Reaction pills */}
+        {reactions.length > 0 && (
+          <div className={cn('flex flex-wrap gap-1', isSent ? 'justify-end' : 'justify-start')}>
+            {reactions.map((reaction) => {
+              const reactedByMe =
+                Boolean(currentUserId) && reaction.userIds.includes(currentUserId!);
+              return (
+                <button
+                  key={reaction.emoji}
+                  type="button"
+                  onClick={() => onReact?.(message.id, reaction.emoji)}
+                  className={cn(
+                    'pixel-box inline-flex items-center gap-1 px-1.5 py-0.5 font-mono text-xs',
+                    reactedByMe
+                      ? 'bg-[#2c3766] text-[#f8fafc] ring-1 ring-[var(--unread)]'
+                      : 'bg-card text-foreground',
+                  )}
+                  aria-label={`Toggle ${reaction.emoji} reaction (${reaction.userIds.length})`}
+                >
+                  <span>{reaction.emoji}</span>
+                  <span className="tabular-nums">{reaction.userIds.length}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </>
   );
