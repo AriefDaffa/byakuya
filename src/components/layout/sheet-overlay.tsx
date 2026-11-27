@@ -34,14 +34,14 @@ export function SheetOverlay({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60" />
         <Dialog.Content
           aria-describedby={undefined}
-          className="bg-background fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col shadow-xl focus:outline-none"
+          className="pixel-panel bg-background fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col rounded-none focus:outline-none"
         >
-          <div className="flex items-center justify-between gap-2 border-b p-2">
+          <div className="bg-card flex items-center justify-between gap-2 border-b-2 border-[var(--pixel-frame)] p-2">
             {header || (
-              <Dialog.Title className="px-2 text-lg font-semibold">
+              <Dialog.Title className="font-pixel px-2 text-base font-bold">
                 {accessibleTitle}
               </Dialog.Title>
             )}
@@ -49,14 +49,14 @@ export function SheetOverlay({
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="hover:bg-accent inline-flex size-8 shrink-0 items-center justify-center rounded-md"
+                className="pixel-btn bg-card text-foreground inline-flex size-8 shrink-0 items-center justify-center"
                 aria-label="Close"
               >
                 <X className="size-4" />
               </button>
             </Dialog.Close>
           </div>
-          <div className="flex-1 overflow-y-auto">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

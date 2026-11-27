@@ -3,7 +3,9 @@
 import { signOut } from '@/features/auth/actions';
 import { useChatListStore } from '@/store/chat-list-store';
 import { useChatStore } from '@/store/chat-store';
-import { EllipsisVertical, LogOut, Moon, Paintbrush, Sun, User } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { PixelMenuIcon } from '@/components/ui/pixel-icons';
+import { LogOut, Moon, Paintbrush, Sun, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useSyncExternalStore } from 'react';
 
@@ -47,21 +49,36 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
     void signOut();
   };
 
+  const initial = userName?.trim().substring(0, 1).toUpperCase() || '?';
+
   return (
     <div className="flex items-center justify-between gap-2">
-      <div>
-        <p className="text-muted-foreground text-xs">Welcome,</p>
-        <h2 className="text-xl font-semibold">{userName}</h2>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <div className="relative shrink-0">
+          <Avatar className="size-10">
+            <AvatarFallback className="font-pixel text-sm font-bold">
+              {initial}
+            </AvatarFallback>
+          </Avatar>
+          <span
+            className="absolute -right-0.5 -bottom-0.5 size-2.5 border border-[var(--pixel-frame)] bg-[var(--online)]"
+            aria-hidden="true"
+          />
+        </div>
+        <h2 className="font-pixel min-w-0 truncate text-base font-bold">
+          {userName || 'Byakuya'}
+        </h2>
       </div>
+
       <div className="relative">
         <button
           type="button"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="hover:bg-accent inline-flex size-9 items-center justify-center rounded-md transition-colors"
+          className="pixel-btn bg-card text-foreground inline-flex size-9 items-center justify-center"
           aria-label="Open menu"
           aria-expanded={isMenuOpen}
         >
-          <EllipsisVertical className="size-4" />
+          <PixelMenuIcon className="size-4" />
         </button>
 
         {isMenuOpen && (
@@ -69,9 +86,11 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
             {/* Backdrop */}
             <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
             {/* Menu */}
-            <div className="bg-popover absolute right-0 z-50 mt-1 w-40 rounded-md border p-1 shadow-md">
-              <p className="px-2 py-1.5 text-sm font-semibold">Menu</p>
-              <div className="bg-border my-1 h-px" />
+            <div className="pixel-panel bg-popover absolute right-0 z-50 mt-2 w-44 rounded-none p-1">
+              <p className="font-pixel text-muted-foreground px-2 py-1.5 text-xs font-bold uppercase">
+                Menu
+              </p>
+              <div className="my-1 h-0.5 bg-[var(--pixel-frame)]" />
               <button
                 type="button"
                 onClick={() => {
@@ -80,7 +99,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
                   }
                   setIsMenuOpen(false);
                 }}
-                className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
+                className="hover:bg-accent font-pixel-mono flex w-full items-center gap-2 rounded-none px-2 py-1.5 text-xs"
               >
                 <User className="size-4" /> Profile
               </button>
@@ -91,7 +110,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
                     setTheme(theme === 'dark' ? 'light' : 'dark');
                     setIsMenuOpen(false);
                   }}
-                  className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
+                  className="hover:bg-accent font-pixel-mono flex w-full items-center gap-2 rounded-none px-2 py-1.5 text-xs"
                 >
                   <Paintbrush className="size-4" />
                   {theme === 'dark' ? (
@@ -105,11 +124,11 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
                   )}
                 </button>
               )}
-              <div className="bg-border my-1 h-px" />
+              <div className="my-1 h-0.5 bg-[var(--pixel-frame)]" />
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="text-destructive hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
+                className="text-destructive hover:bg-accent font-pixel-mono flex w-full items-center gap-2 rounded-none px-2 py-1.5 text-xs"
               >
                 <LogOut className="size-4" /> Sign out
               </button>

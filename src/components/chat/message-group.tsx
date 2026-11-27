@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageBubble } from '@/components/ui/message-bubble';
 import { formatChatTimestamp } from '@/lib/format';
@@ -24,24 +25,29 @@ export function MessageGroupComponent({
 
   return (
     <div className="mb-4">
-      <div className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
-        <Avatar className="hidden size-10 md:block">
+      <div className={cn('flex gap-3', isOwn && 'flex-row-reverse')}>
+        <Avatar className="hidden size-10 shrink-0 rounded-none border-2 border-[var(--pixel-frame)] md:block">
           <AvatarImage src={senderAvatar || ''} alt={senderName} />
           <AvatarFallback>{senderName.substring(0, 1).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <div className={`flex max-w-[80%] flex-col gap-1 ${isOwn ? 'items-end' : ''}`}>
+        <div
+          className={cn(
+            'flex min-w-0 flex-1 flex-col gap-1',
+            isOwn ? 'items-end' : 'items-start',
+          )}
+        >
           <div className="flex items-center gap-2">
             {isOwn ? (
               <>
-                <span className="text-muted-foreground text-xs">
+                <span className="font-pixel-mono text-[10px] opacity-75">
                   {formatChatTimestamp(messages[0]?.created_at)}
                 </span>
-                <span className="font-semibold">{senderName}</span>
+                <span className="font-pixel text-sm font-semibold">{senderName}</span>
               </>
             ) : (
               <>
-                <span className="font-semibold">{senderName}</span>
-                <span className="text-muted-foreground text-xs">
+                <span className="font-pixel text-sm font-semibold">{senderName}</span>
+                <span className="font-pixel-mono text-[10px] opacity-75">
                   {formatChatTimestamp(messages[0]?.created_at)}
                 </span>
               </>

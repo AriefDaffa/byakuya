@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { Fragment, useCallback, useEffect, useRef } from 'react';
 import { useChatRoom } from '@/hooks/use-chat-room';
 import { useChatStore } from '@/store/chat-store';
 import { ChatHeader } from '@/components/chat/chat-header';
 import { MessageGroupComponent } from '@/components/chat/message-group';
 import { MessageInput } from '@/components/chat/message-input';
 import { Loader } from '@/components/ui/loader';
+import { formatMessageDate } from '@/lib/format';
 
 export function ChatSection() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -93,6 +94,22 @@ export function ChatSection() {
     [sendAttachment],
   );
 
+  // Insert a pixel date separator whenever the calendar day changes.
+  const groupsWithDateDividers = messageGroups.map((group, index) => {
+    const dateLabel = group.messages[0]
+      ? formatMessageDate(group.messages[0].created_at)
+      : undefined;
+    const previousGroup = messageGroups[index - 1];
+    const previousDateLabel = previousGroup?.messages[0]
+      ? formatMessageDate(previousGroup.messages[0].created_at)
+      : undefined;
+
+    return {
+      group,
+      dateLabel: dateLabel && dateLabel !== previousDateLabel ? dateLabel : null,
+    };
+  });
+
   if (!selectedUser) {
     return (
       <div className="text-muted-foreground flex size-full items-center justify-center border-r border-b">
@@ -115,27 +132,35 @@ export function ChatSection() {
           <Loader />
         ) : (
           <div className="flex h-full flex-col">
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="pixel-dither-bg flex-1 overflow-y-auto p-4">
               {currentPage < totalPages && (
                 <div className="mb-4 flex w-full items-center justify-center">
                   <button
                     type="button"
                     onClick={incrementPage}
                     disabled={isFetching}
-                    className="hover:bg-accent rounded-full border px-4 py-2 text-sm transition-colors disabled:opacity-50"
+                    className="pixel-btn bg-card font-pixel-mono cursor-pointer px-4 py-2 text-[10px] tracking-wide uppercase disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isFetching ? 'Loading...' : 'Load older messages'}
                   </button>
                 </div>
               )}
-              {messageGroups.map((group, idx) => (
-                <MessageGroupComponent
-                  key={group.messages[0]?.id ?? idx}
-                  currentUserId={currentUserId || ''}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  {...group}
-                />
+              {groupsWithDateDividers.map(({ group, dateLabel }, idx) => (
+                <Fragment key={group.messages[0]?.id ?? idx}>
+                  {dateLabel && (
+                    <div className="my-4 flex w-full items-center justify-center">
+                      <span className="pixel-box bg-card font-pixel-mono px-2.5 py-1 text-[10px]">
+                        {dateLabel}
+                      </span>
+                    </div>
+                  )}
+                  <MessageGroupComponent
+                    currentUserId={currentUserId || ''}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    {...group}
+                  />
+                </Fragment>
               ))}
               <div ref={messagesEndRef} />
             </div>
