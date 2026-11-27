@@ -1,6 +1,12 @@
 # Byakuya
 
-Modern realtime chat application built with Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Zustand, and PostgreSQL (Docker).
+16-bit pixel-themed realtime chat application built with Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Zustand, and PostgreSQL (Docker).
+
+## Features
+
+- **16-bit Pixel OS UI:** Classic desktop/mobile window chrome, notched pixel speech bubbles with directional tails, deterministic 16×16 RPG portrait avatars, custom `crispEdges` pixel icons, and light/dark theme support.
+- **Custom Authentication:** PostgreSQL-backed user accounts with `scrypt` password hashing, signed `jose` JWT session cookies, and Next.js `proxy.ts` route protection.
+- **Realtime Chat & Attachments:** Server-Sent Events (`/api/realtime`) for live message delivery, editing, deletion, and unread counts, plus local file/image attachment uploads served via `/api/attachments/[id]`.
 
 ## Prerequisites
 
@@ -25,6 +31,7 @@ Modern realtime chat application built with Next.js 16 (App Router), React 19, T
    ```bash
    npm run dev
    ```
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Scripts
 
