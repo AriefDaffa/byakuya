@@ -37,6 +37,10 @@ yarn-error.log*
 # local uploads
 /uploads/
 
+# cook loop local working state
+/cook/
+/cook-archive/
+
 # playwright
 /playwright-report/
 /test-results/
