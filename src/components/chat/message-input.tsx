@@ -66,10 +66,10 @@ export function MessageInput({
       {editingMessage && (
         <div className="bg-muted flex items-center gap-2 border-t-2 border-[var(--pixel-frame)] px-3 py-2 sm:px-4">
           <div className="min-w-0 flex-1">
-            <p className="font-pixel text-[10px] font-bold text-[var(--unread)] uppercase">
+            <p className="font-sans text-[11px] font-semibold tracking-wider text-[var(--unread)] uppercase">
               Editing message
             </p>
-            <p className="text-muted-foreground font-pixel-mono truncate text-xs">
+            <p className="text-muted-foreground truncate font-sans text-xs">
               {editingMessage.content}
             </p>
           </div>
@@ -84,7 +84,7 @@ export function MessageInput({
         </div>
       )}
 
-      <div className="bg-card flex items-center gap-2 border-t-2 border-[var(--pixel-frame)] p-3 sm:p-4">
+      <div className="bg-card flex items-center gap-2 border-t-2 border-[var(--pixel-frame)] p-2.5 sm:p-3">
         {/* Attachment button */}
         {onSendAttachment && !editingMessage && (
           <>
@@ -110,8 +110,8 @@ export function MessageInput({
 
         <input
           type="text"
-          placeholder={editingMessage ? 'Edit your message...' : 'Type a message...'}
-          className="pixel-input placeholder:text-muted-foreground font-pixel-mono min-w-0 flex-1 rounded-none px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          placeholder={editingMessage ? 'Edit your message...' : 'Write a message...'}
+          className="pixel-input placeholder:text-muted-foreground h-10 min-w-0 flex-1 rounded-none px-3 font-sans text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -127,7 +127,7 @@ export function MessageInput({
             'pixel-btn inline-flex size-10 shrink-0 items-center justify-center disabled:opacity-50',
             editingMessage
               ? 'bg-[var(--unread)] text-[#090c12]'
-              : 'bg-primary text-primary-foreground',
+              : 'md:bg-primary md:text-primary-foreground bg-[#16a34a] text-white',
           )}
           aria-label={editingMessage ? 'Save edit' : 'Send message'}
         >

@@ -24,7 +24,7 @@ export function ChatHeader({
   return (
     <header
       className={cn(
-        'bg-card flex items-center justify-between gap-3 border-b-2 border-[var(--pixel-frame)] px-4 py-3 max-md:pl-16',
+        'flex items-center justify-between gap-3 border-b-2 border-[#090c12] bg-[#232946] px-4 py-3 text-[#f8fafc] shadow-[inset_0_-2px_0_rgba(0,0,0,0.25)] max-md:pl-16',
         className,
       )}
     >
@@ -34,32 +34,27 @@ export function ChatHeader({
         onClick={onProfileClick}
         aria-label={`View ${name}'s profile`}
       >
-        <Avatar className="size-10">
+        <Avatar className="size-10 shrink-0">
           <AvatarImage src={avatar} alt={name} />
-          <AvatarFallback className="font-pixel text-sm font-bold">
-            {name.substring(0, 2).toUpperCase()}
-          </AvatarFallback>
+          <AvatarFallback>{name}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 text-left">
-          <h2 className="font-pixel truncate text-lg leading-tight font-bold">{name}</h2>
+          <h2 className="truncate font-sans text-base leading-tight font-bold">{name}</h2>
           {status && (
             <span
               className={cn(
-                'pixel-box mt-1 inline-flex items-center gap-1.5 px-1.5 py-0.5',
-                isOnline ? 'bg-[var(--card)]' : 'bg-muted',
+                'mt-1 inline-flex items-center gap-1.5 border-2 border-[#090c12] px-1.5 py-0.5',
+                isOnline ? 'bg-[#1a3a2a]' : 'bg-[#2b3348]',
               )}
             >
               <span
-                className={cn(
-                  'size-2 border border-[var(--pixel-frame)]',
-                  isOnline ? 'bg-[var(--online)]' : 'bg-muted-foreground',
-                )}
+                className={cn('size-2', isOnline ? 'bg-[var(--online)]' : 'bg-[#7b87a3]')}
                 aria-hidden="true"
               />
               <span
                 className={cn(
-                  'font-pixel-mono text-[10px] font-bold',
-                  isOnline ? 'text-[var(--online)]' : 'text-muted-foreground',
+                  'font-sans text-[13px] leading-none font-semibold',
+                  isOnline ? 'text-[var(--online)]' : 'text-[#aab4cc]',
                 )}
               >
                 {status}
@@ -72,7 +67,7 @@ export function ChatHeader({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="pixel-btn bg-card text-muted-foreground hover:text-foreground inline-flex size-9 items-center justify-center"
+          className="pixel-btn inline-flex size-9 shrink-0 items-center justify-center border-[#090c12] bg-[#2f3a63] text-[#c3cbe4] hover:text-[#f8fafc]"
           aria-label="More options"
         >
           <MoreVertical className="size-5" />

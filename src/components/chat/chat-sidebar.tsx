@@ -123,8 +123,8 @@ export function ChatSidebar() {
             type="text"
             value={searchKeyword}
             onChange={(e) => onSearch(e.target.value)}
-            placeholder="Search users or messages..."
-            className="pixel-input placeholder:text-muted-foreground font-pixel-mono w-full rounded-none py-2 pr-8 pl-8 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            placeholder="Search..."
+            className="pixel-input placeholder:text-muted-foreground w-full rounded-none py-2.5 pr-8 pl-9 font-sans text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             aria-label="Search conversations"
           />
           {searchKeyword && (
@@ -151,7 +151,7 @@ export function ChatSidebar() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {results.users.length > 0 && (
               <>
-                <div className="text-muted-foreground font-pixel border-b border-[var(--pixel-frame)] bg-[var(--card)] px-3 py-2 text-[10px] font-bold uppercase">
+                <div className="text-muted-foreground border-b border-[var(--pixel-frame)] bg-[var(--card)] px-3 py-2 font-sans text-[11px] font-semibold tracking-wider uppercase">
                   Users
                 </div>
                 {results.users.map((user) => (
@@ -161,15 +161,15 @@ export function ChatSidebar() {
                     onClick={() => handleSelectUser(user)}
                     className="hover:bg-accent flex w-full items-center gap-3 border-b border-[var(--pixel-frame)] px-3 py-2.5 text-left transition-colors"
                   >
-                    <Avatar className="size-9">
+                    <Avatar className="size-10">
                       <AvatarImage src={user.avatar_url || ''} alt={user.name} />
-                      <AvatarFallback className="font-pixel text-xs font-bold">
-                        {user.name.substring(0, 1).toUpperCase()}
-                      </AvatarFallback>
+                      <AvatarFallback>{user.name}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="font-pixel truncate text-sm font-bold">{user.name}</p>
-                      <p className="text-muted-foreground font-pixel-mono truncate text-[10px]">
+                      <p className="truncate font-sans text-sm font-semibold">
+                        {user.name}
+                      </p>
+                      <p className="text-muted-foreground truncate font-sans text-xs">
                         {user.email}
                       </p>
                     </div>
@@ -179,7 +179,7 @@ export function ChatSidebar() {
             )}
             {results.messages.length > 0 && (
               <>
-                <div className="text-muted-foreground font-pixel border-b border-[var(--pixel-frame)] bg-[var(--card)] px-3 py-2 text-[10px] font-bold uppercase">
+                <div className="text-muted-foreground border-b border-[var(--pixel-frame)] bg-[var(--card)] px-3 py-2 font-sans text-[11px] font-semibold tracking-wider uppercase">
                   Messages
                 </div>
                 {results.messages.map((msg) => (
@@ -189,20 +189,18 @@ export function ChatSidebar() {
                     onClick={() => handleSelectSearchMessage(msg.conversation_id)}
                     className="hover:bg-accent flex w-full items-center gap-3 border-b border-[var(--pixel-frame)] px-3 py-2.5 text-left transition-colors"
                   >
-                    <Avatar className="size-9">
+                    <Avatar className="size-10">
                       <AvatarImage
                         src={msg.sender.avatar_url || ''}
                         alt={msg.sender.name}
                       />
-                      <AvatarFallback className="font-pixel text-xs font-bold">
-                        {msg.sender.name.substring(0, 1).toUpperCase()}
-                      </AvatarFallback>
+                      <AvatarFallback>{msg.sender.name}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <p className="font-pixel truncate text-sm font-bold">
+                      <p className="truncate font-sans text-sm font-semibold">
                         {msg.sender.id === currentUser?.id ? 'You' : msg.sender.name}
                       </p>
-                      <p className="text-muted-foreground font-pixel-mono truncate text-xs">
+                      <p className="text-muted-foreground truncate font-sans text-xs">
                         {msg.content}
                       </p>
                     </div>

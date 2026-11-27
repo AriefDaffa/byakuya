@@ -3,6 +3,7 @@
 import * as React from 'react';
 import * as AvatarPrimitive from '@radix-ui/react-avatar';
 import { cn } from '@/lib/utils';
+import { PixelAvatarSvg } from '@/components/ui/pixel-avatar';
 
 function Avatar({
   className,
@@ -35,8 +36,13 @@ function AvatarImage({
 
 function AvatarFallback({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
+  // Seed the portrait from the fallback label (normally the user's name) so
+  // each person gets a stable 16-bit RPG portrait instead of a letter tile.
+  const name = typeof children === 'string' ? children : 'Byakuya';
+
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
@@ -45,7 +51,10 @@ function AvatarFallback({
         className,
       )}
       {...props}
-    />
+    >
+      <PixelAvatarSvg name={name} className="size-full" />
+      <span className="sr-only">{name}</span>
+    </AvatarPrimitive.Fallback>
   );
 }
 

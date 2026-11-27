@@ -49,24 +49,22 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
     void signOut();
   };
 
-  const initial = userName?.trim().substring(0, 1).toUpperCase() || '?';
+  const displayName = userName?.trim() || 'Byakuya';
 
   return (
     <div className="flex items-center justify-between gap-2">
-      <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex min-w-0 items-center gap-3">
         <div className="relative shrink-0">
           <Avatar className="size-10">
-            <AvatarFallback className="font-pixel text-sm font-bold">
-              {initial}
-            </AvatarFallback>
+            <AvatarFallback>{displayName}</AvatarFallback>
           </Avatar>
           <span
             className="absolute -right-0.5 -bottom-0.5 size-2.5 border border-[var(--pixel-frame)] bg-[var(--online)]"
             aria-hidden="true"
           />
         </div>
-        <h2 className="font-pixel min-w-0 truncate text-base font-bold">
-          {userName || 'Byakuya'}
+        <h2 className="min-w-0 truncate font-sans text-base leading-tight font-bold">
+          {displayName}
         </h2>
       </div>
 
@@ -74,7 +72,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
         <button
           type="button"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="pixel-btn bg-card text-foreground inline-flex size-9 items-center justify-center"
+          className="pixel-btn bg-card text-foreground inline-flex size-10 items-center justify-center"
           aria-label="Open menu"
           aria-expanded={isMenuOpen}
         >
@@ -87,7 +85,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
             <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
             {/* Menu */}
             <div className="pixel-panel bg-popover absolute right-0 z-50 mt-2 w-44 rounded-none p-1">
-              <p className="font-pixel text-muted-foreground px-2 py-1.5 text-xs font-bold uppercase">
+              <p className="text-muted-foreground px-2 py-1.5 font-sans text-[11px] font-semibold tracking-wider uppercase">
                 Menu
               </p>
               <div className="my-1 h-0.5 bg-[var(--pixel-frame)]" />
@@ -99,7 +97,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
                   }
                   setIsMenuOpen(false);
                 }}
-                className="hover:bg-accent font-pixel-mono flex w-full items-center gap-2 rounded-none px-2 py-1.5 text-xs"
+                className="hover:bg-accent flex w-full items-center gap-2 rounded-none px-2 py-2 font-sans text-sm font-medium"
               >
                 <User className="size-4" /> Profile
               </button>
@@ -110,7 +108,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
                     setTheme(theme === 'dark' ? 'light' : 'dark');
                     setIsMenuOpen(false);
                   }}
-                  className="hover:bg-accent font-pixel-mono flex w-full items-center gap-2 rounded-none px-2 py-1.5 text-xs"
+                  className="hover:bg-accent flex w-full items-center gap-2 rounded-none px-2 py-2 font-sans text-sm font-medium"
                 >
                   <Paintbrush className="size-4" />
                   {theme === 'dark' ? (
@@ -128,7 +126,7 @@ export function SidebarHeader({ userName }: SidebarHeaderProps) {
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="text-destructive hover:bg-accent font-pixel-mono flex w-full items-center gap-2 rounded-none px-2 py-1.5 text-xs"
+                className="text-destructive hover:bg-accent flex w-full items-center gap-2 rounded-none px-2 py-2 font-sans text-sm font-medium"
               >
                 <LogOut className="size-4" /> Sign out
               </button>
