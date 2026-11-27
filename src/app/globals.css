@@ -103,9 +103,9 @@
   --pixel-frame: #090c12;
   --pixel-highlight: #3a4563;
   --pixel-shadow: #07090e;
-  --bubble-sent: #2e42b8;
+  --bubble-sent: #3144c8;
   --bubble-sent-foreground: #f8fafc;
-  --bubble-received: #252c3d;
+  --bubble-received: #283044;
   --bubble-received-foreground: #eef2ff;
   --online: #22c55e;
   --unread: #f59e0b;
@@ -123,18 +123,10 @@
 
 /* 16-bit Pixel UI Utilities */
 .pixel-auth-bg {
-  background-color: #161d29;
-  background-image:
-    linear-gradient(45deg, #1d2636 25%, transparent 25%),
-    linear-gradient(-45deg, #1d2636 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #1d2636 75%),
-    linear-gradient(-45deg, transparent 75%, #1d2636 75%);
-  background-size: 6px 6px;
-  background-position:
-    0 0,
-    0 3px,
-    3px -3px,
-    -3px 0;
+  background-color: #18202c;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Crect width='2' height='2' fill='%23212b3b'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23212b3b'/%3E%3Crect x='2' width='2' height='2' fill='%23151c27'/%3E%3Crect y='2' width='2' height='2' fill='%23151c27'/%3E%3C/svg%3E");
+  background-size: 4px 4px;
+  image-rendering: pixelated;
 }
 
 .pixel-dither-bg {
