@@ -8,6 +8,9 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+const inputClassName =
+  'w-full rounded-none border-2 border-[#0b0e14] bg-[#f4f7fb] px-3 py-2.5 font-sans text-sm text-[#0f172a] shadow-[inset_2px_2px_0_rgba(0,0,0,0.16)] outline-none placeholder:text-[#64748b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1b5e8a]';
+
 /**
  * `redirect()` inside a server action rejects the client promise with a
  * `NEXT_REDIRECT` error. That is the success path, so it must be rethrown
@@ -60,46 +63,54 @@ export function LoginForm() {
   return (
     <div className="w-full space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="font-pixel text-2xl font-bold tracking-tight">
+        <h1 className="font-sans text-2xl font-bold tracking-tight text-[#0f172a]">
           Welcome Back to Byakuya
         </h1>
-        <p className="text-muted-foreground text-sm">
+        <p className="font-sans text-sm text-[#334155]">
           Enter your email and password to continue.
         </p>
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <label htmlFor="email" className="font-pixel-mono text-sm font-semibold">
+          <label
+            htmlFor="email"
+            className="font-sans text-sm font-semibold text-[#0f172a]"
+          >
             Email
           </label>
           <input
             id="email"
             type="email"
             autoComplete="email"
-            className="pixel-input placeholder:text-muted-foreground w-full rounded-none px-3 py-2.5 text-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
+            placeholder="you@example.com"
+            className={inputClassName}
             {...form.register('email')}
           />
           {form.formState.errors.email && (
-            <p className="text-destructive text-sm">
+            <p className="font-sans text-sm text-[#b3261e]">
               {form.formState.errors.email.message}
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password" className="font-pixel-mono text-sm font-semibold">
+          <label
+            htmlFor="password"
+            className="font-sans text-sm font-semibold text-[#0f172a]"
+          >
             Password
           </label>
           <input
             id="password"
             type="password"
             autoComplete="current-password"
-            className="pixel-input placeholder:text-muted-foreground w-full rounded-none px-3 py-2.5 text-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
+            placeholder="••••••••"
+            className={inputClassName}
             {...form.register('password')}
           />
           {form.formState.errors.password && (
-            <p className="text-destructive text-sm">
+            <p className="font-sans text-sm text-[#b3261e]">
               {form.formState.errors.password.message}
             </p>
           )}
@@ -108,17 +119,17 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="pixel-btn bg-primary text-primary-foreground font-pixel mt-2 w-full rounded-none py-2.5 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+          className="pixel-btn mt-2 w-full rounded-none bg-[#1b5e8a] py-2.5 font-sans text-base font-semibold text-white hover:bg-[#2171a6] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isLoading ? 'Signing in...' : 'Sign In'}
         </button>
       </form>
 
-      <p className="text-center text-sm">
+      <p className="text-center font-sans text-sm text-[#334155]">
         Don&apos;t have an account?{' '}
         <Link
           href="/register"
-          className="text-primary font-semibold underline decoration-2 underline-offset-4"
+          className="font-semibold text-[#1b5e8a] underline decoration-2 underline-offset-4 hover:text-[#2171a6]"
         >
           Register
         </Link>
